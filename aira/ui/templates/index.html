@@ -1,0 +1,2044 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AIRA: Autonomous Incident Reasoning Agent | SOC Analyst Workbench</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
+          colors: {
+            cyber: {
+              950: '#040711',
+              900: '#080d1a',
+              850: '#0f172a',
+              800: '#1e293b',
+              700: '#334155',
+              600: '#475569',
+              accent: '#06b6d4',
+              red: '#ef4444',
+              green: '#10b981',
+              amber: '#f59e0b',
+              purple: '#a855f7'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      background-color: #040711;
+      color: #f1f5f9;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+    #network-canvas {
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(circle at 50% 50%, #0d172e 0%, #040711 100%);
+    }
+    /* Custom scrollbars */
+    ::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #080d1a;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #475569;
+    }
+    .glow-cyan {
+      box-shadow: 0 0 18px rgba(6, 182, 212, 0.3);
+    }
+    .copilot-prose pre {
+      background-color: #040711;
+      border: 1px solid #1e293b;
+      border-radius: 8px;
+      padding: 10px;
+      overflow-x: auto;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      margin-top: 6px;
+      margin-bottom: 6px;
+    }
+    .copilot-prose code {
+      font-family: 'JetBrains Mono', monospace;
+      color: #38bdf8;
+    }
+    .copilot-prose ul {
+      list-style-type: disc;
+      padding-left: 18px;
+      margin-top: 4px;
+      margin-bottom: 4px;
+    }
+    .copilot-prose ol {
+      list-style-type: decimal;
+      padding-left: 18px;
+      margin-top: 4px;
+      margin-bottom: 4px;
+    }
+    .copilot-prose h3 {
+      font-weight: 700;
+      color: #ffffff;
+      margin-top: 6px;
+      margin-bottom: 4px;
+    }
+    .copilot-prose table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 6px;
+      margin-bottom: 6px;
+      font-size: 11px;
+    }
+    .copilot-prose th, .copilot-prose td {
+      border: 1px solid #1e293b;
+      padding: 4px 8px;
+    }
+    .copilot-prose th {
+      background-color: #0f172a;
+      color: #94a3b8;
+    }
+  </style>
+</head>
+<body class="flex flex-col h-screen overflow-hidden text-slate-100">
+
+  <!-- Top Navbar -->
+  <header class="bg-cyber-900 border-b border-cyber-800 px-5 py-2.5 flex items-center justify-between z-20 shrink-0">
+    <div class="flex items-center space-x-3.5">
+      <div class="h-9 w-9 rounded-xl bg-gradient-to-tr from-cyan-500 via-indigo-500 to-rose-500 p-[2px] flex items-center justify-center glow-cyan shrink-0">
+        <div class="h-full w-full bg-cyber-950 rounded-[10px] flex items-center justify-center">
+          <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+          </svg>
+        </div>
+      </div>
+      <div>
+        <div class="flex items-center space-x-2">
+          <h1 class="text-lg font-black tracking-tight bg-gradient-to-r from-white via-slate-100 to-cyan-400 bg-clip-text text-transparent">AIRA</h1>
+          <span class="text-[10px] px-2 py-0.5 rounded-full bg-cyan-950 border border-cyan-700/60 text-cyan-300 font-mono font-medium">v1.0-capstone</span>
+          <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-950 border border-emerald-700/60 text-emerald-400 font-mono font-medium animate-pulse">● LIVE PROVENANCE</span>
+        </div>
+        <p class="text-[11px] text-slate-400 font-medium">Autonomous Incident Reasoning Agent · Tier-2/3 SOC Analyst Workbench</p>
+      </div>
+    </div>
+
+    <!-- Global Action Controls -->
+    <div class="flex items-center space-x-2.5">
+      <!-- Preset Trace Selector -->
+      <select id="preset-selector" onchange="handlePresetChange(this.value)" class="px-2.5 py-1.5 text-xs font-semibold bg-cyber-850 hover:bg-cyber-800 text-cyan-300 rounded-lg border border-slate-700 transition font-mono shadow">
+        <option value="sample">⚡ Preset: Sample Kill Chain (10 Events)</option>
+        <option value="multihost">🌐 Preset: Enterprise Multi-Host Pivot (16 Events, 2 Hosts)</option>
+        <option value="apt29">🛡️ Preset: APT29 Mordor (65 Events + Noise)</option>
+      </select>
+
+      <input type="file" id="telemetry-input" class="hidden" accept=".json,.evtx" onchange="handleFileUpload(event)"/>
+      <button onclick="document.getElementById('telemetry-input').click()" class="px-3 py-1.5 text-xs font-semibold bg-cyber-850 hover:bg-cyber-800 text-slate-200 rounded-lg border border-slate-700 transition flex items-center space-x-1.5 shadow">
+        <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+        <span>Upload (.json / .evtx)</span>
+      </button>
+
+      <button onclick="reloadSample()" class="px-3 py-1.5 text-xs font-semibold bg-cyber-850 hover:bg-cyber-800 text-slate-200 rounded-lg border border-slate-700 transition flex items-center space-x-1.5 shadow">
+        <svg class="w-3.5 h-3.5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+        <span>Reset</span>
+      </button>
+
+      <a href="/api/paper/download" target="_blank" class="px-3 py-1.5 text-xs font-bold bg-emerald-950 hover:bg-emerald-900 text-emerald-300 rounded-lg border border-emerald-700/60 shadow transition flex items-center space-x-1.5">
+        <span>📄 IEEE Paper (PDF)</span>
+      </a>
+
+      <button onclick="downloadDossier()" class="px-3 py-1.5 text-xs font-bold bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg shadow-lg shadow-cyan-900/30 transition flex items-center space-x-1.5">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        <span>Export Dossier</span>
+      </button>
+
+      <button onclick="openBenchmarkModal()" class="px-3.5 py-1.5 text-xs font-bold bg-gradient-to-r from-purple-700 to-indigo-600 hover:from-purple-600 hover:to-indigo-500 text-white rounded-lg shadow-lg shadow-purple-950/40 transition flex items-center space-x-1.5 border border-purple-500/50">
+        <svg class="w-3.5 h-3.5 text-purple-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+        <span>📊 Capstone Benchmark</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Metrics Ribbon -->
+  <section class="bg-cyber-950 border-b border-cyber-800 px-5 py-2 flex items-center justify-between text-xs shrink-0 font-mono">
+    <div class="flex items-center space-x-5">
+      <div class="flex items-center space-x-2">
+        <span class="text-slate-400 uppercase tracking-wider text-[10px]">Incident ID:</span>
+        <span id="metric-incident-id" class="font-bold text-cyan-300">INC-2026-0926-01</span>
+      </div>
+      <div class="h-3.5 w-[1px] bg-cyber-800"></div>
+      <div class="flex items-center space-x-2">
+        <span class="text-slate-400 uppercase tracking-wider text-[10px]">Severity:</span>
+        <span id="metric-severity" class="px-2 py-0.5 rounded text-[10px] font-bold bg-red-950 text-red-400 border border-red-800">CRITICAL</span>
+      </div>
+      <div class="h-3.5 w-[1px] bg-cyber-800"></div>
+      <div class="flex items-center space-x-2">
+        <span class="text-slate-400 uppercase tracking-wider text-[10px]">Reasoning Confidence:</span>
+        <span id="metric-confidence" class="font-bold text-emerald-400">92%</span>
+      </div>
+      <div class="h-3.5 w-[1px] bg-cyber-800"></div>
+      <div class="flex items-center space-x-2">
+        <span class="text-slate-400 uppercase tracking-wider text-[10px]">Active Ingestion:</span>
+        <span id="metric-source-container" class="px-2 py-0.5 rounded font-mono font-bold bg-cyan-950/90 border border-cyan-700 text-cyan-300 flex items-center space-x-1.5 shadow">
+          <span class="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span id="metric-source-name" class="truncate max-w-[170px]">sample_attack_chain.json</span>
+          <span id="metric-source-type" class="px-1.5 py-0.2 rounded text-[9px] bg-cyan-900 text-cyan-200">JSON</span>
+        </span>
+      </div>
+      <div class="h-3.5 w-[1px] bg-cyber-800"></div>
+      <div class="flex items-center space-x-2">
+        <span class="text-slate-400 uppercase tracking-wider text-[10px]">Affected Asset:</span>
+        <span id="metric-hosts" class="text-slate-200">CORP-WKS-042 (CORP\JohnDoe)</span>
+      </div>
+    </div>
+
+    <div class="flex items-center space-x-4 text-slate-300 text-[11px]">
+      <span class="flex items-center space-x-1.5">
+        <span class="h-2 w-2 rounded-full bg-cyan-400"></span>
+        <span id="metric-events-count">10 Telemetry Events</span>
+      </span>
+      <span class="flex items-center space-x-1.5">
+        <span class="h-2 w-2 rounded-full bg-purple-400"></span>
+        <span id="metric-graph-count">10 Causal Entities</span>
+      </span>
+      <span class="flex items-center space-x-1.5">
+        <span class="h-2 w-2 rounded-full bg-rose-500 animate-pulse"></span>
+        <span id="metric-actions-count" class="text-rose-300 font-semibold">4 Actions Pending</span>
+      </span>
+    </div>
+  </section>
+
+  <!-- Main Split Workspace -->
+  <main class="flex-1 flex overflow-hidden">
+    
+    <!-- LEFT PANEL: Multi-Tab Intelligence & Actions (Width 36%) -->
+    <div class="w-[36%] border-r border-cyber-800 bg-cyber-900 flex flex-col overflow-hidden">
+      
+      <!-- Panel Navigation Tabs -->
+      <div class="flex items-center border-b border-cyber-800 bg-cyber-950 px-3 pt-2 space-x-1 text-xs font-mono shrink-0">
+        <button onclick="switchTab('reasoning')" id="tab-btn-reasoning" class="tab-btn px-3 py-1.5 font-bold text-cyan-400 border-b-2 border-cyan-400 transition flex items-center space-x-1.5">
+          <span>🧠 Reasoning & Gaps</span>
+        </button>
+        <button onclick="switchTab('mitre')" id="tab-btn-mitre" class="tab-btn px-3 py-1.5 font-medium text-slate-400 hover:text-slate-200 transition flex items-center space-x-1">
+          <span>🛡️ MITRE Matrix</span>
+          <span id="badge-mitre-count" class="px-1.5 py-0.2 text-[9px] rounded-full bg-cyber-800 text-cyan-300">6</span>
+        </button>
+        <button onclick="switchTab('actions')" id="tab-btn-actions" class="tab-btn px-3 py-1.5 font-medium text-slate-400 hover:text-slate-200 transition flex items-center space-x-1.5">
+          <span>⚡ Prescribed Actions</span>
+          <span id="badge-actions-count" class="px-1.5 py-0.2 text-[9px] rounded-full bg-rose-950 text-rose-400 border border-rose-800">5</span>
+        </button>
+        <button onclick="switchTab('detections')" id="tab-btn-detections" class="tab-btn px-2.5 py-1.5 font-medium text-amber-300 hover:text-white transition flex items-center space-x-1">
+          <span>🎯 Detections</span>
+          <span class="px-1 py-0.2 text-[8px] rounded bg-amber-950 text-amber-300 border border-amber-800 font-bold">5</span>
+        </button>
+        <button onclick="switchTab('copilot')" id="tab-btn-copilot" class="tab-btn px-2.5 py-1.5 font-medium text-purple-300 hover:text-white transition flex items-center space-x-1.5">
+          <span class="h-1.5 w-1.5 rounded-full bg-purple-400 animate-pulse"></span>
+          <span>🤖 Ask AIRA</span>
+        </button>
+        <button onclick="switchTab('all')" id="tab-btn-all" class="tab-btn px-2 py-1.5 font-medium text-slate-400 hover:text-slate-200 transition">
+          <span>📑 Full</span>
+        </button>
+      </div>
+
+      <!-- Tab Content Area (Scrollable) -->
+      <div class="flex-1 overflow-y-auto p-4 space-y-4">
+        
+        <!-- SECTION 1: Cognitive Assessment & Hypotheses -->
+        <div id="section-reasoning" class="tab-section space-y-3">
+          <!-- Ingested Source Card -->
+          <div class="p-3 rounded-xl bg-cyber-950 border border-cyber-800 text-xs font-mono">
+            <div class="flex items-center justify-between text-[10px] text-slate-400 uppercase tracking-wider mb-1">
+              <span>Active Telemetry Dataset</span>
+              <span id="panel-source-type" class="px-1.5 py-0.2 rounded bg-cyan-950 border border-cyan-800 text-cyan-300 font-bold">JSON</span>
+            </div>
+            <div id="panel-source-name" class="text-white font-bold text-xs truncate">sample_attack_chain.json</div>
+            <div class="text-[11px] text-emerald-400 flex items-center space-x-1.5 mt-1">
+              <span class="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span>Ingested & Normalized into Causal Graph</span>
+              <span id="panel-source-events" class="text-slate-400 font-bold">(10 Events)</span>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between">
+            <h2 class="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center space-x-1.5">
+              <span class="h-2 w-2 rounded-full bg-rose-500 animate-ping"></span>
+              <span>AIRA Cognitive Assessment</span>
+            </h2>
+            <span id="hypothesis-verdict-badge" class="px-2.5 py-0.5 rounded text-xs font-mono font-bold bg-red-950 border border-red-700 text-red-400">
+              VERDICT: MALICIOUS
+            </span>
+          </div>
+
+          <div class="p-3.5 rounded-xl bg-cyber-850 border border-cyber-800">
+            <div class="flex items-center justify-between mb-1.5">
+              <h3 id="hypothesis-title" class="text-sm font-bold text-white">Multi-Stage Attack Chain: Phishing to Execution and Persistence</h3>
+              <span class="px-2 py-0.5 rounded text-[9px] font-mono font-bold bg-purple-950 border border-purple-800 text-purple-300 shrink-0 ml-2">HYBRID ENGINE</span>
+            </div>
+            <p id="hypothesis-desc" class="text-xs text-slate-300 leading-relaxed font-sans">
+              AIRA identified a coherent attack sequence spanning 6 MITRE ATT&CK tactics (Command and Control, Credential Access, Discovery, Execution, Lateral Movement, Persistence).
+            </p>
+          </div>
+
+          <!-- Hybrid Bayesian Inference Proof Card -->
+          <div id="bayesian-proof-card" class="p-3.5 rounded-xl bg-cyber-900 border border-purple-800/60 shadow-lg text-xs space-y-3">
+            <div class="flex items-center justify-between border-b border-purple-900/50 pb-2">
+              <div class="flex items-center space-x-2">
+                <span class="p-1 rounded bg-purple-950 border border-purple-700 text-purple-300 text-xs">📐</span>
+                <div>
+                  <span class="font-bold text-white uppercase tracking-wider text-[11px] block">Bayesian Mathematical Proof</span>
+                  <span class="text-[10px] text-purple-300 font-mono">Odds-Form Belief Revision: P(Intrusion | Evidence)</span>
+                </div>
+              </div>
+              <span id="bayesian-verdict-badge" class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-purple-950 border border-purple-700 text-purple-300">
+                CONFIRMED_MALICIOUS
+              </span>
+            </div>
+
+            <!-- Key Metrics Grid -->
+            <div class="grid grid-cols-3 gap-2 text-center">
+              <div class="p-2 rounded-lg bg-cyber-950 border border-cyber-800">
+                <div class="text-[9px] text-slate-400 font-mono uppercase">Posterior P(H|E)</div>
+                <div id="bayesian-posterior-val" class="text-sm font-mono font-bold text-rose-400 mt-0.5">99.9%</div>
+                <div class="text-[9px] text-emerald-400 font-mono">Calibrated</div>
+              </div>
+              <div class="p-2 rounded-lg bg-cyber-950 border border-cyber-800">
+                <div class="text-[9px] text-slate-400 font-mono uppercase">Bayes Factor (Λ)</div>
+                <div id="bayesian-factor-val" class="text-sm font-mono font-bold text-cyan-300 mt-0.5">2,916 : 1</div>
+                <div class="text-[9px] text-cyan-400 font-mono">Decisive Evid.</div>
+              </div>
+              <div class="p-2 rounded-lg bg-cyber-950 border border-cyber-800">
+                <div class="text-[9px] text-slate-400 font-mono uppercase">Prior Risk (P₀)</div>
+                <div class="text-sm font-mono font-bold text-slate-300 mt-0.5">5.0%</div>
+                <div class="text-[9px] text-slate-500 font-mono">Enterprise Base</div>
+              </div>
+            </div>
+
+            <!-- Formula Banner -->
+            <div class="px-2.5 py-1.5 rounded-lg bg-purple-950/30 border border-purple-900/60 font-mono text-[10px] text-purple-200 flex items-center justify-between">
+              <span>O_post = O_prior × ∏ Λ_i</span>
+              <span class="text-slate-400">Jeffreys' Scale: &gt; 100:1 (Decisive)</span>
+            </div>
+
+            <!-- Evidence Belief Trajectory List -->
+            <div>
+              <div class="flex items-center justify-between text-[10px] font-mono text-slate-400 uppercase tracking-wider mb-1.5 font-bold">
+                <span>Belief Update Trajectory</span>
+                <span id="bayesian-step-count" class="text-purple-400">5 Updates</span>
+              </div>
+              <div id="bayesian-trajectory-list" class="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                <!-- Dynamically populated steps -->
+              </div>
+            </div>
+          </div>
+
+          <!-- Missing Evidence & Telemetry Gaps -->
+          <div id="missing-evidence-container" class="p-3 rounded-xl bg-amber-950/40 border border-amber-800/60 text-xs">
+            <div class="flex items-center space-x-1.5 text-amber-400 font-bold mb-1">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+              <span>Identified Telemetry Blind Spot / Gap</span>
+            </div>
+            <div id="missing-evidence-text" class="text-slate-300 leading-relaxed font-mono text-[11px]">
+              • Outbound network activity observed without corresponding DNS resolution event.
+            </div>
+          </div>
+
+          <!-- Root Cause & Blast Radius Quick Summary -->
+          <div class="p-3 rounded-xl bg-cyber-850 border border-cyber-800 text-xs font-mono space-y-1.5">
+            <div class="text-[10px] text-slate-400 uppercase tracking-wider font-bold">Causal Graph Lineage</div>
+            <div class="text-slate-300 flex items-center justify-between">
+              <span>Root Ancestor:</span>
+              <span class="text-rose-400 font-bold">explorer.exe (PID 1400)</span>
+            </div>
+            <div class="text-slate-300 flex items-center justify-between">
+              <span>Primary Execution:</span>
+              <span class="text-cyan-400">WINWORD.EXE → cmd.exe</span>
+            </div>
+            <div class="text-slate-300 flex items-center justify-between">
+              <span>Active C2 Endpoint:</span>
+              <span class="text-amber-400">198.51.100.45:443 (TCP)</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- SECTION 2: MITRE ATT&CK Mapping -->
+        <div id="section-mitre" class="tab-section hidden space-y-2.5">
+          <div class="flex items-center justify-between mb-1">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400">MITRE ATT&CK Techniques Mapped</h3>
+            <span id="mitre-count" class="text-cyan-400 font-mono text-xs">6 Detected</span>
+          </div>
+          <div id="mitre-container" class="space-y-2">
+            <!-- Rendered dynamically -->
+          </div>
+        </div>
+
+        <!-- SECTION 3: Prescribed Remediation Actions -->
+        <div id="section-actions" class="tab-section hidden space-y-2.5">
+          <div class="flex items-center justify-between mb-1">
+            <div>
+              <h3 class="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center space-x-2">
+                <span>Prescribed Actions</span>
+                <span class="text-[9px] px-1.5 py-0.5 rounded bg-purple-950 text-purple-300 border border-purple-800 font-mono">SANDBOX VERIFIED</span>
+              </h3>
+              <p class="text-[11px] text-slate-400 font-sans mt-0.5">Pre-flight simulation & human approval gate for countermeasures.</p>
+            </div>
+            <div class="flex items-center space-x-1.5">
+              <button onclick="simulateAllActions()" class="px-2 py-1 text-[10px] font-bold bg-purple-950 hover:bg-purple-900 text-purple-300 rounded border border-purple-700 transition flex items-center space-x-1 shadow">
+                <span>🧪 Dry-Run All</span>
+              </button>
+              <a href="/api/playbook/download" class="px-2.5 py-1 text-[10px] font-bold bg-cyan-700 hover:bg-cyan-600 text-white rounded border border-cyan-500 transition flex items-center space-x-1 shadow">
+                <span>📦 Export Playbook (.ZIP)</span>
+              </a>
+            </div>
+          </div>
+
+          <div id="preflight-summary-banner" class="hidden p-2.5 rounded-xl bg-cyber-850 border border-slate-700 text-xs font-mono mb-2"></div>
+
+          <div id="actions-container" class="space-y-2.5">
+            <!-- Rendered dynamically -->
+          </div>
+        </div>
+
+        <!-- SECTION 4: Conversational LLM SOC Co-Pilot ("Ask AIRA") -->
+        <div id="section-copilot" class="tab-section hidden space-y-3">
+          
+          <!-- Co-Pilot Status & Model Selector Banner -->
+          <div class="p-3 rounded-xl bg-gradient-to-r from-purple-950/70 via-cyber-900 to-cyber-950 border border-purple-800/60 text-xs font-mono shrink-0">
+            <div class="flex items-center justify-between mb-1.5">
+              <div class="flex items-center space-x-2">
+                <span class="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span class="font-bold text-white text-xs">AIRA Graph-RAG Co-Pilot</span>
+                <span id="copilot-engine-badge" class="px-1.5 py-0.2 rounded text-[9px] bg-purple-950 border border-purple-700 text-purple-300">Local Active</span>
+              </div>
+              <button onclick="toggleKeySettings()" class="px-2 py-0.5 rounded text-[10px] bg-cyber-800 hover:bg-cyber-700 text-slate-300 border border-slate-700 transition flex items-center space-x-1">
+                <span>⚙️ API Key</span>
+              </button>
+            </div>
+            <p class="text-[11px] text-slate-300 font-sans leading-relaxed">
+              Ask questions about patient zero, generate Sigma / YARA detection rules, or request CISO briefing grounded in the live causal graph.
+            </p>
+
+            <!-- API Key Input Drawer -->
+            <div id="copilot-key-drawer" class="hidden mt-2 pt-2 border-t border-purple-800/40 space-y-1.5">
+              <div class="flex items-center space-x-2">
+                <input type="password" id="copilot-api-key" placeholder="Enter Gemini or OpenAI API Key (Optional)" class="flex-1 px-2.5 py-1 text-xs bg-cyber-950 border border-slate-700 rounded text-slate-200 focus:outline-none focus:border-cyan-500 font-mono" />
+                <button onclick="saveApiKey()" class="px-2.5 py-1 text-xs font-bold bg-cyan-600 hover:bg-cyan-500 text-white rounded transition">Save</button>
+              </div>
+              <div class="text-[10px] text-slate-400">Keys are stored locally in your browser. If omitted, AIRA operates via the deterministic local Graph-RAG cognitive engine.</div>
+            </div>
+          </div>
+
+          <!-- Quick Suggestion Action Chips -->
+          <div class="shrink-0 flex flex-wrap gap-1.5 text-[11px]">
+            <button onclick="askPresetPrompt('Explain the root cause and initial access vector in detail.')" class="px-2.5 py-1 rounded-lg bg-cyber-850 hover:bg-cyber-800 border border-slate-700 hover:border-cyan-500/60 text-slate-200 transition font-mono flex items-center space-x-1 shadow-sm">
+              <span>🔍 Root Cause</span>
+            </button>
+            <button onclick="askPresetPrompt('Explain the Bayesian probability and mathematical proof for this attack.')" class="px-2.5 py-1 rounded-lg bg-cyber-850 hover:bg-cyber-800 border border-purple-800/80 hover:border-purple-400 text-purple-200 transition font-mono flex items-center space-x-1 shadow-sm">
+              <span>📐 Bayesian Proof</span>
+            </button>
+            <button onclick="askPresetPrompt('Generate a Sigma detection rule for this attack sequence.')" class="px-2.5 py-1 rounded-lg bg-cyber-850 hover:bg-cyber-800 border border-slate-700 hover:border-purple-500/60 text-slate-200 transition font-mono flex items-center space-x-1 shadow-sm">
+              <span>🛡️ Sigma Rule</span>
+            </button>
+            <button onclick="askPresetPrompt('Which external IP addresses and ports should I block on the firewall?')" class="px-2.5 py-1 rounded-lg bg-cyber-850 hover:bg-cyber-800 border border-slate-700 hover:border-rose-500/60 text-slate-200 transition font-mono flex items-center space-x-1 shadow-sm">
+              <span>🌐 Block C2 IPs</span>
+            </button>
+            <button onclick="askPresetPrompt('Generate an Executive CISO Briefing summarizing business impact.')" class="px-2.5 py-1 rounded-lg bg-cyber-850 hover:bg-cyber-800 border border-slate-700 hover:border-amber-500/60 text-slate-200 transition font-mono flex items-center space-x-1 shadow-sm">
+              <span>👔 CISO Briefing</span>
+            </button>
+            <button onclick="askPresetPrompt('Write a YARA rule to detect artifacts from this incident.')" class="px-2.5 py-1 rounded-lg bg-cyber-850 hover:bg-cyber-800 border border-slate-700 hover:border-emerald-500/60 text-slate-200 transition font-mono flex items-center space-x-1 shadow-sm">
+              <span>⚙️ YARA Rule</span>
+            </button>
+          </div>
+
+          <!-- Conversation Message Stream -->
+          <div id="copilot-messages" class="space-y-3 text-xs max-h-[360px] overflow-y-auto pr-1">
+            <!-- Default Welcome Bubble -->
+            <div class="p-3 rounded-xl bg-cyber-850 border border-cyber-800 flex items-start space-x-2.5">
+              <div class="h-6 w-6 rounded-md bg-purple-600 flex items-center justify-center shrink-0 mt-0.5 shadow">
+                <span class="text-white font-bold text-[10px]">AI</span>
+              </div>
+              <div class="space-y-1 text-slate-200 leading-relaxed font-sans">
+                <div class="font-bold text-purple-300 font-mono text-[11px]">AIRA Autonomous Co-Pilot</div>
+                <p>Hello Analyst. I have ingested the causal provenance graph and mapped the attack telemetry. Click any quick prompt above or ask a free-form question below.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Chat Input Bar -->
+          <div class="pt-2 border-t border-cyber-800">
+            <form onsubmit="handleCopilotSubmit(event)" class="flex items-center space-x-2">
+              <input type="text" id="copilot-user-input" placeholder="Ask AIRA about this incident (e.g. 'What is patient zero?')..." class="flex-1 px-3 py-2 text-xs bg-cyber-950 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 font-sans shadow" />
+              <button type="submit" id="copilot-send-btn" class="px-3.5 py-2 text-xs font-bold bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl shadow-lg shadow-cyan-900/40 transition flex items-center space-x-1">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
+                <span>Ask</span>
+              </button>
+            </form>
+          </div>
+
+        </div>
+
+        <!-- SECTION 5: Multi-Format Detection Engineering Hub -->
+        <div id="section-detections" class="tab-section hidden space-y-3">
+          <div class="flex items-center justify-between">
+            <div>
+              <h3 class="text-xs font-bold uppercase tracking-wider text-slate-200 flex items-center space-x-2">
+                <span>Multi-Format Detection Hub</span>
+                <span class="text-[9px] px-1.5 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-800 font-mono font-bold">5 SIEM FORMATS</span>
+              </h3>
+              <p class="text-[11px] text-slate-400 font-sans mt-0.5">Automated detection rules synthesized directly from the active causal graph.</p>
+            </div>
+            <a href="/api/detections/download" class="px-2.5 py-1 text-[10px] font-bold bg-amber-600 hover:bg-amber-500 text-white rounded border border-amber-400 transition flex items-center space-x-1 shadow">
+              <span>📦 Export Rules (.ZIP)</span>
+            </a>
+          </div>
+
+          <!-- Format Selector Chips -->
+          <div class="flex items-center space-x-1.5 bg-cyber-950 p-1.5 rounded-lg border border-cyber-800 text-[11px] font-mono">
+            <button onclick="selectDetectionFormat('sigma')" id="det-tab-sigma" class="det-format-btn px-2.5 py-1 rounded bg-amber-950 text-amber-300 border border-amber-700 font-bold transition">
+              Sigma (YAML)
+            </button>
+            <button onclick="selectDetectionFormat('yara')" id="det-tab-yara" class="det-format-btn px-2.5 py-1 rounded bg-cyber-850 text-slate-400 hover:text-white transition">
+              YARA
+            </button>
+            <button onclick="selectDetectionFormat('splunk')" id="det-tab-splunk" class="det-format-btn px-2.5 py-1 rounded bg-cyber-850 text-slate-400 hover:text-white transition">
+              Splunk SPL
+            </button>
+            <button onclick="selectDetectionFormat('elastic')" id="det-tab-elastic" class="det-format-btn px-2.5 py-1 rounded bg-cyber-850 text-slate-400 hover:text-white transition">
+              Elastic EQL
+            </button>
+            <button onclick="selectDetectionFormat('sentinel')" id="det-tab-sentinel" class="det-format-btn px-2.5 py-1 rounded bg-cyber-850 text-slate-400 hover:text-white transition">
+              Sentinel KQL
+            </button>
+          </div>
+
+          <!-- Active Rule Metadata Banner -->
+          <div class="p-2.5 rounded-lg bg-cyber-850 border border-cyber-800 text-xs font-mono space-y-1">
+            <div class="flex items-center justify-between text-[11px]">
+              <span id="det-format-title" class="font-bold text-amber-300">Sigma Rule (Vendor-Agnostic)</span>
+              <span id="det-format-target" class="text-slate-400 text-[10px]">Universal SIEM Translation</span>
+            </div>
+            <div class="text-[10px] text-slate-400 flex items-center space-x-3">
+              <span>Coverage: <b id="det-technique-count" class="text-cyan-400">4 MITRE TTPs</b></span>
+              <span>Target: <b class="text-slate-200">Process & Network</b></span>
+              <span>FP Risk: <b class="text-emerald-400">Low (Causal Pruned)</b></span>
+            </div>
+          </div>
+
+          <!-- Code Box with Copy Button -->
+          <div class="relative rounded-xl bg-cyber-950 border border-cyber-800 p-3 overflow-hidden">
+            <div class="flex items-center justify-between pb-2 mb-2 border-b border-cyber-800 text-[10px] font-mono text-slate-400">
+              <span id="det-code-filename">sigma_rule.yml</span>
+              <button onclick="copyDetectionCode()" id="copy-detection-btn" class="px-2 py-0.5 rounded bg-cyber-800 hover:bg-cyber-700 text-slate-200 border border-slate-700 transition flex items-center space-x-1">
+                <span>📋 Copy Rule</span>
+              </button>
+            </div>
+            <pre id="detection-code-block" class="text-xs font-mono text-cyan-200 max-h-80 overflow-y-auto whitespace-pre font-medium leading-relaxed"></pre>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- RIGHT PANEL: Graph Canvas (Top 56%) + Timeline (Bottom 44%) -->
+    <div class="w-[64%] flex flex-col bg-cyber-950 relative h-full">
+      
+      <!-- Graph Canvas Header / Controls -->
+      <div class="px-4 py-2 border-b border-cyber-800 bg-cyber-900 flex items-center justify-between shrink-0">
+        <div class="flex items-center space-x-3 text-xs font-mono">
+          <span class="font-bold text-slate-200 uppercase tracking-wider flex items-center space-x-1.5">
+            <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+            <span>Temporal Causal Attack Graph</span>
+          </span>
+          <div class="flex items-center space-x-2 text-[10px]">
+            <span class="flex items-center space-x-1"><span class="h-2 w-2 rotate-45 bg-rose-600 inline-block border border-white"></span><span>Root</span></span>
+            <span class="flex items-center space-x-1"><span class="h-2 w-2 rounded-full bg-red-500 inline-block"></span><span>Suspicious</span></span>
+            <span class="flex items-center space-x-1"><span class="h-2 w-2 rounded-full bg-purple-500 inline-block"></span><span>Proc</span></span>
+            <span class="flex items-center space-x-1"><span class="h-2 w-2 bg-cyan-400 inline-block"></span><span>Net</span></span>
+            <span class="flex items-center space-x-1"><span class="h-2 w-2 bg-amber-500 inline-block"></span><span>File</span></span>
+            <span class="flex items-center space-x-1"><span class="h-2 w-2 bg-emerald-500 inline-block"></span><span>Reg</span></span>
+          </div>
+        </div>
+
+        <div class="flex items-center space-x-1.5 text-xs font-mono">
+          <!-- LIVE TELEMETRY STREAM CONTROLS -->
+          <div class="flex items-center space-x-1 bg-cyber-950 px-2 py-0.5 rounded-lg border border-rose-900/60 shadow">
+            <div class="flex items-center space-x-1 mr-1">
+              <span id="stream-indicator" class="h-2 w-2 rounded-full bg-slate-500"></span>
+              <span id="stream-status-label" class="text-[9px] font-bold text-slate-400">STREAM IDLE</span>
+            </div>
+            <button onclick="startLiveStreamPlayback()" id="btn-stream-start" title="Replay Live Telemetry Stream" class="px-2 py-0.5 text-[10px] font-bold bg-rose-600 hover:bg-rose-500 text-white rounded transition flex items-center space-x-1 shadow">
+              <span>▶ Live Play</span>
+            </button>
+            <button onclick="pauseLiveStreamPlayback()" id="btn-stream-pause" title="Pause Stream Replay" class="px-2 py-0.5 text-[10px] font-bold bg-amber-600 hover:bg-amber-500 text-white rounded transition hidden shadow">
+              <span>⏸ Pause</span>
+            </button>
+            <select id="stream-speed-select" onchange="changeStreamSpeed(this.value)" class="px-1.5 py-0.5 text-[10px] bg-cyber-850 text-cyan-300 rounded border border-cyber-700 font-mono">
+              <option value="0.5">0.5s</option>
+              <option value="1.0" selected>1.0s</option>
+              <option value="2.0">2.0s</option>
+            </select>
+            <button onclick="resetLiveStream()" title="Reset Stream to Baseline" class="px-1.5 py-0.5 text-[10px] bg-cyber-800 hover:bg-cyber-700 text-slate-400 hover:text-white rounded border border-cyber-700 transition">
+              <span>⏹</span>
+            </button>
+          </div>
+
+          <!-- Causal Subgraph Noise Pruning Filter -->
+          <button onclick="toggleNoiseFilter()" id="noise-filter-btn" class="px-2.5 py-1 text-[10px] font-bold bg-cyan-950 hover:bg-cyan-900 text-cyan-300 rounded border border-cyan-700 flex items-center space-x-1 shadow transition">
+            <span id="noise-filter-text">🛡️ Noise Filter: ON</span>
+          </button>
+          <span id="noise-metrics-badge" class="px-2 py-0.5 rounded text-[9px] font-mono bg-emerald-950/90 border border-emerald-700 text-emerald-300 hidden">
+            <!-- Dynamic reduction pct -->
+          </span>
+
+          <button onclick="focusAttackPath()" class="px-2.5 py-1 text-[10px] font-bold bg-rose-950 hover:bg-rose-900 text-rose-300 rounded border border-rose-700 flex items-center space-x-1 shadow transition">
+            <span>🎯 Focus Attackers</span>
+          </button>
+          <button onclick="zoomIn()" title="Zoom In" class="px-2 py-1 text-[11px] bg-cyber-800 hover:bg-cyber-700 rounded text-slate-200 border border-slate-700 font-bold transition">+</button>
+          <button onclick="zoomOut()" title="Zoom Out" class="px-2 py-1 text-[11px] bg-cyber-800 hover:bg-cyber-700 rounded text-slate-200 border border-slate-700 font-bold transition">-</button>
+          <button onclick="fitGraph()" class="px-2 py-1 text-[10px] bg-cyber-800 hover:bg-cyber-700 rounded text-slate-300 border border-slate-700 transition">Fit All</button>
+          <button onclick="togglePhysics()" id="physics-btn" class="px-2 py-1 text-[10px] bg-cyber-800 hover:bg-cyber-700 rounded text-slate-300 border border-slate-700 transition">Physics: On</button>
+        </div>
+      </div>
+
+      <!-- Graph Canvas Container (Upper Half) -->
+      <div class="relative flex-1 min-h-[220px]">
+        <div id="network-canvas"></div>
+
+        <!-- Node Inspector Slide-over (Floating card on node click) -->
+        <div id="node-inspector" class="absolute top-3 right-3 w-80 bg-cyber-900/95 border border-cyber-700 rounded-xl p-3.5 shadow-2xl backdrop-blur-md hidden z-30 transition">
+          <div class="flex items-center justify-between border-b border-cyber-800 pb-2 mb-2.5">
+            <h4 class="text-xs font-bold text-cyan-400 font-mono uppercase tracking-wider flex items-center space-x-1">
+              <span>🔍 Entity Details</span>
+            </h4>
+            <button onclick="closeNodeInspector()" class="text-slate-400 hover:text-white text-base font-mono leading-none">&times;</button>
+          </div>
+          <div id="inspector-content" class="space-y-1.5 text-xs font-mono text-slate-300 break-all max-h-64 overflow-y-auto">
+            <!-- Dynamic inspect content -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Chronological Timeline Drawer (Lower Half - always visible) -->
+      <div class="h-[44%] min-h-[200px] border-t border-cyber-800 bg-cyber-900 flex flex-col shrink-0">
+        <div class="px-4 py-2 border-b border-cyber-800/80 flex items-center justify-between bg-cyber-950 shrink-0">
+          <div class="flex items-center space-x-2.5">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-200 flex items-center space-x-1.5">
+              <svg class="w-3.5 h-3.5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              <span>Reconstructed Chronological Kill-Chain Timeline</span>
+            </h3>
+            <span id="timeline-count-badge" class="px-2 py-0.2 rounded bg-cyber-800 text-[10px] font-mono text-slate-300">10 Events</span>
+          </div>
+
+          <!-- Filter Pills -->
+          <div class="flex items-center space-x-1 text-[10px] font-mono">
+            <button onclick="filterTimeline('ALL')" class="timeline-filter-btn px-2 py-0.5 rounded bg-cyan-900 text-cyan-300 border border-cyan-700 font-bold" data-filter="ALL">All</button>
+            <button onclick="filterTimeline('Execution')" class="timeline-filter-btn px-2 py-0.5 rounded bg-cyber-800 text-slate-400 hover:text-white" data-filter="Execution">Execution</button>
+            <button onclick="filterTimeline('Command and Control')" class="timeline-filter-btn px-2 py-0.5 rounded bg-cyber-800 text-slate-400 hover:text-white" data-filter="Command and Control">C2</button>
+            <button onclick="filterTimeline('Persistence')" class="timeline-filter-btn px-2 py-0.5 rounded bg-cyber-800 text-slate-400 hover:text-white" data-filter="Persistence">Persistence</button>
+            <button onclick="filterTimeline('Credential Access')" class="timeline-filter-btn px-2 py-0.5 rounded bg-cyber-800 text-slate-400 hover:text-white" data-filter="Credential Access">Credential</button>
+          </div>
+        </div>
+
+        <div class="flex-1 overflow-y-auto">
+          <table class="w-full text-left text-xs font-mono">
+            <thead class="bg-cyber-950 text-slate-400 uppercase text-[10px] tracking-wider sticky top-0 z-10 border-b border-cyber-800">
+              <tr>
+                <th class="py-2 px-3">Time</th>
+                <th class="py-2 px-3">Tactic / Stage</th>
+                <th class="py-2 px-3">Actor (Parent)</th>
+                <th class="py-2 px-3">Action Observed</th>
+                <th class="py-2 px-3">Target / CommandLine</th>
+                <th class="py-2 px-3">MITRE ID</th>
+                <th class="py-2 px-3">Record ID</th>
+              </tr>
+            </thead>
+            <tbody id="timeline-tbody" class="divide-y divide-cyber-800 text-slate-300">
+              <!-- Rendered dynamically -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <script>
+    let network = null;
+    let visNodes = null;
+    let visEdges = null;
+    let streamEventSource = null;
+    let isStreamPlaying = false;
+    let incidentData = null;
+    let graphData = null;
+    let physicsEnabled = true;
+    let filterNoiseEnabled = true;
+    let allTimelineEntries = [];
+
+    // Tab switching logic for Left Panel
+    function switchTab(tabName) {
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('font-bold', 'text-cyan-400', 'border-b-2', 'border-cyan-400');
+        btn.classList.add('font-medium', 'text-slate-400');
+      });
+      document.getElementById(`tab-btn-${tabName}`).classList.add('font-bold', 'text-cyan-400', 'border-b-2', 'border-cyan-400');
+      document.getElementById(`tab-btn-${tabName}`).classList.remove('text-slate-400');
+
+      const secReasoning = document.getElementById('section-reasoning');
+      const secMitre = document.getElementById('section-mitre');
+      const secActions = document.getElementById('section-actions');
+      const secDetections = document.getElementById('section-detections');
+      const secCopilot = document.getElementById('section-copilot');
+
+      if (tabName === 'reasoning') {
+        secReasoning.classList.remove('hidden');
+        secMitre.classList.add('hidden');
+        secActions.classList.add('hidden');
+        if (secDetections) secDetections.classList.add('hidden');
+        secCopilot.classList.add('hidden');
+      } else if (tabName === 'mitre') {
+        secReasoning.classList.add('hidden');
+        secMitre.classList.remove('hidden');
+        secActions.classList.add('hidden');
+        if (secDetections) secDetections.classList.add('hidden');
+        secCopilot.classList.add('hidden');
+      } else if (tabName === 'actions') {
+        secReasoning.classList.add('hidden');
+        secMitre.classList.add('hidden');
+        secActions.classList.remove('hidden');
+        if (secDetections) secDetections.classList.add('hidden');
+        secCopilot.classList.add('hidden');
+      } else if (tabName === 'detections') {
+        secReasoning.classList.add('hidden');
+        secMitre.classList.add('hidden');
+        secActions.classList.add('hidden');
+        if (secDetections) secDetections.classList.remove('hidden');
+        secCopilot.classList.add('hidden');
+        if (!detectionRulesData) loadDetectionRules();
+      } else if (tabName === 'copilot') {
+        secReasoning.classList.add('hidden');
+        secMitre.classList.add('hidden');
+        secActions.classList.add('hidden');
+        if (secDetections) secDetections.classList.add('hidden');
+        secCopilot.classList.remove('hidden');
+      } else if (tabName === 'all') {
+        secReasoning.classList.remove('hidden');
+        secMitre.classList.remove('hidden');
+        secActions.classList.remove('hidden');
+        if (secDetections) secDetections.classList.remove('hidden');
+        secCopilot.classList.remove('hidden');
+      }
+    }
+
+    let detectionRulesData = null;
+    let currentDetectionFormat = 'sigma';
+
+    async function loadDetectionRules() {
+      try {
+        const res = await fetch('/api/detections');
+        if (!res.ok) return;
+        detectionRulesData = await res.json();
+        const techCountEl = document.getElementById('det-technique-count');
+        if (techCountEl && detectionRulesData.indicators) {
+          techCountEl.textContent = `${detectionRulesData.indicators.mitre_ids.length} MITRE TTPs`;
+        }
+        renderActiveDetection();
+      } catch (err) {
+        console.error('Failed to load detection rules:', err);
+      }
+    }
+
+    function selectDetectionFormat(format) {
+      currentDetectionFormat = format;
+      document.querySelectorAll('.det-format-btn').forEach(btn => {
+        btn.className = 'det-format-btn px-2.5 py-1 rounded bg-cyber-850 text-slate-400 hover:text-white transition';
+      });
+      const activeBtn = document.getElementById(`det-tab-${format}`);
+      if (activeBtn) {
+        activeBtn.className = 'det-format-btn px-2.5 py-1 rounded bg-amber-950 text-amber-300 border border-amber-700 font-bold transition';
+      }
+      renderActiveDetection();
+    }
+
+    function renderActiveDetection() {
+      if (!detectionRulesData || !detectionRulesData.rules) return;
+      const rule = detectionRulesData.rules[currentDetectionFormat];
+      if (!rule) return;
+
+      const titleEl = document.getElementById('det-format-title');
+      if (titleEl) titleEl.textContent = rule.format_name;
+      const targetEl = document.getElementById('det-format-target');
+      if (targetEl) targetEl.textContent = rule.target_platform;
+      const filenameEl = document.getElementById('det-code-filename');
+      if (filenameEl) filenameEl.textContent = `${currentDetectionFormat}_incident_${detectionRulesData.incident_id}.${rule.extension}`;
+      
+      const codeBlock = document.getElementById('detection-code-block');
+      if (codeBlock) codeBlock.textContent = rule.content;
+    }
+
+    function copyDetectionCode() {
+      const codeBlock = document.getElementById('detection-code-block');
+      if (!codeBlock) return;
+      navigator.clipboard.writeText(codeBlock.textContent).then(() => {
+        const btn = document.getElementById('copy-detection-btn');
+        btn.innerHTML = '<span>✓ Copied!</span>';
+        btn.className = 'px-2 py-0.5 rounded bg-emerald-800 text-white border border-emerald-600 transition flex items-center space-x-1';
+        setTimeout(() => {
+          btn.innerHTML = '<span>📋 Copy Rule</span>';
+          btn.className = 'px-2 py-0.5 rounded bg-cyber-800 hover:bg-cyber-700 text-slate-200 border border-slate-700 transition flex items-center space-x-1';
+        }, 2000);
+      });
+    }
+
+    function toggleKeySettings() {
+      const drawer = document.getElementById('copilot-key-drawer');
+      drawer.classList.toggle('hidden');
+      const savedKey = localStorage.getItem('aira_llm_key');
+      if (savedKey) document.getElementById('copilot-api-key').value = savedKey;
+    }
+
+    function saveApiKey() {
+      const key = document.getElementById('copilot-api-key').value.trim();
+      if (key) {
+        localStorage.setItem('aira_llm_key', key);
+        showToast('🔑 API Key Saved', 'Using custom LLM provider');
+        document.getElementById('copilot-engine-badge').textContent = key.startsWith('sk-') ? 'OpenAI Live' : 'Gemini Live';
+        document.getElementById('copilot-engine-badge').className = 'px-1.5 py-0.2 rounded text-[9px] bg-emerald-950 border border-emerald-700 text-emerald-300';
+      } else {
+        localStorage.removeItem('aira_llm_key');
+        showToast('⚙️ Key Cleared', 'Switched to local Graph-RAG engine');
+        document.getElementById('copilot-engine-badge').textContent = 'Local Active';
+        document.getElementById('copilot-engine-badge').className = 'px-1.5 py-0.2 rounded text-[9px] bg-purple-950 border border-purple-700 text-purple-300';
+      }
+      document.getElementById('copilot-key-drawer').classList.add('hidden');
+    }
+
+    function askPresetPrompt(promptText) {
+      switchTab('copilot');
+      document.getElementById('copilot-user-input').value = promptText;
+      handleCopilotSubmit(new Event('submit'));
+    }
+
+    async function handleCopilotSubmit(e) {
+      if (e) e.preventDefault();
+      const inputEl = document.getElementById('copilot-user-input');
+      const query = inputEl.value.trim();
+      if (!query) return;
+
+      const msgContainer = document.getElementById('copilot-messages');
+
+      // Append User message
+      const userBubble = document.createElement('div');
+      userBubble.className = 'p-3 rounded-xl bg-cyan-950/70 border border-cyan-800 text-slate-100 flex items-start space-x-2.5 ml-4';
+      userBubble.innerHTML = `
+        <div class="h-6 w-6 rounded-md bg-cyan-700 flex items-center justify-center shrink-0 mt-0.5 shadow">
+          <span class="text-white font-bold text-[10px]">YOU</span>
+        </div>
+        <div class="font-sans text-xs text-cyan-100 leading-relaxed font-medium break-words flex-1">${escapeHtml(query)}</div>
+      `;
+      msgContainer.appendChild(userBubble);
+      inputEl.value = '';
+      msgContainer.scrollTop = msgContainer.scrollHeight;
+
+      // Append AI Loading placeholder
+      const loadingBubble = document.createElement('div');
+      loadingBubble.className = 'p-3 rounded-xl bg-cyber-850 border border-cyber-800 text-slate-200 flex items-start space-x-2.5 mr-4';
+      loadingBubble.innerHTML = `
+        <div class="h-6 w-6 rounded-md bg-purple-600 flex items-center justify-center shrink-0 mt-0.5 shadow">
+          <span class="text-white font-bold text-[10px]">AI</span>
+        </div>
+        <div class="flex items-center space-x-2 text-slate-400 font-mono text-xs">
+          <div class="animate-spin h-3.5 w-3.5 border-2 border-purple-400 border-t-transparent rounded-full"></div>
+          <span>Reasoning over provenance graph...</span>
+        </div>
+      `;
+      msgContainer.appendChild(loadingBubble);
+      msgContainer.scrollTop = msgContainer.scrollHeight;
+
+      const apiKey = localStorage.getItem('aira_llm_key') || null;
+
+      try {
+        const res = await fetch('/api/copilot/ask', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: query, api_key: apiKey })
+        });
+        const data = await res.json();
+
+        // Render Markdown answer
+        const parsedHtml = (window.marked && window.marked.parse) ? window.marked.parse(data.answer) : data.answer.replace(/\\n/g, '<br>');
+        loadingBubble.innerHTML = `
+          <div class="h-6 w-6 rounded-md bg-gradient-to-tr from-purple-600 to-indigo-600 flex items-center justify-center shrink-0 mt-0.5 shadow">
+            <span class="text-white font-bold text-[10px]">AI</span>
+          </div>
+          <div class="space-y-1.5 flex-1 min-w-0">
+            <div class="flex items-center justify-between text-[10px] font-mono text-purple-300">
+              <span class="font-bold">AIRA Co-Pilot</span>
+              <span class="px-1.5 py-0.2 rounded bg-purple-950 border border-purple-800 text-[9px] text-purple-300">${data.engine}</span>
+            </div>
+            <div class="copilot-prose text-slate-200 text-xs font-sans leading-relaxed break-words space-y-2">
+              ${parsedHtml}
+            </div>
+          </div>
+        `;
+      } catch (err) {
+        loadingBubble.innerHTML = `
+          <div class="h-6 w-6 rounded-md bg-rose-600 flex items-center justify-center shrink-0 mt-0.5 shadow">
+            <span class="text-white font-bold text-[10px]">!</span>
+          </div>
+          <div class="text-rose-400 font-mono text-xs">
+            Co-Pilot query failed: ${err.message}
+          </div>
+        `;
+      }
+      msgContainer.scrollTop = msgContainer.scrollHeight;
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    async function toggleNoiseFilter() {
+      filterNoiseEnabled = !filterNoiseEnabled;
+      const btn = document.getElementById('noise-filter-text');
+      if (filterNoiseEnabled) {
+        btn.textContent = '🛡️ Noise Filter: ON';
+        document.getElementById('noise-filter-btn').className = 'px-2.5 py-1 text-[10px] font-bold bg-cyan-950 hover:bg-cyan-900 text-cyan-300 rounded border border-cyan-700 flex items-center space-x-1 shadow transition';
+      } else {
+        btn.textContent = '🛡️ Noise Filter: OFF';
+        document.getElementById('noise-filter-btn').className = 'px-2.5 py-1 text-[10px] font-bold bg-slate-800 hover:bg-slate-700 text-slate-400 rounded border border-slate-600 flex items-center space-x-1 shadow transition';
+      }
+      await loadData();
+    }
+
+    async function handlePresetChange(val) {
+      try {
+        const res = await fetch(`/api/load-trace?preset=${val}`, { method: 'POST' });
+        const result = await res.json();
+        if (res.ok) {
+          showToast('⚡ Preset Loaded', `${result.source_name} (${result.events_count} events)`);
+          await loadData();
+          setTimeout(focusAttackPath, 400);
+        }
+      } catch (err) {
+        console.error("Failed to change preset:", err);
+      }
+    }
+
+    // Fetch initial data
+    async function loadData() {
+      try {
+        const [incRes, graphRes] = await Promise.all([
+          fetch('/api/incident'),
+          fetch(`/api/graph/vis?filter_noise=${filterNoiseEnabled}`)
+        ]);
+        incidentData = await incRes.json();
+        graphData = await graphRes.json();
+
+        renderMetrics(incidentData);
+        renderHypotheses(incidentData);
+        renderMitre(incidentData);
+        renderActions(incidentData);
+        renderTimeline(incidentData);
+        renderGraph(graphData);
+        loadDetectionRules();
+      } catch (err) {
+        console.error("Failed to load initial data:", err);
+      }
+    }
+
+    function renderMetrics(data) {
+      document.getElementById('metric-incident-id').textContent = data.incident_id || 'INC-001';
+      document.getElementById('metric-severity').textContent = data.severity || 'CRITICAL';
+      document.getElementById('metric-hosts').textContent = `${(data.affected_hosts||[]).join(', ')} (${(data.affected_users||[]).join(', ')})`;
+      
+      const hyp = (data.hypotheses && data.hypotheses[0]) || {};
+      const conf = Math.round((hyp.confidence || 0.9) * 100);
+      document.getElementById('metric-confidence').textContent = `${conf}%`;
+
+      document.getElementById('metric-events-count').textContent = `${(data.timeline||[]).length} Telemetry Events`;
+      document.getElementById('metric-graph-count').textContent = `${(graphData.nodes||[]).length} Causal Entities`;
+      
+      const pendingCount = (data.recommended_actions||[]).filter(a => a.status === 'PENDING').length;
+      document.getElementById('metric-actions-count').textContent = `${pendingCount} Actions Pending`;
+      document.getElementById('badge-actions-count').textContent = pendingCount;
+
+      // Update Active Telemetry Source indicators
+      const srcName = data.source_name || 'sample_attack_chain.json';
+      const srcType = data.source_type || 'JSON';
+      const evCount = data.events_count || (data.timeline || []).length;
+
+      const metricSrcEl = document.getElementById('metric-source-name');
+      if (metricSrcEl) metricSrcEl.textContent = srcName;
+      const metricTypeEl = document.getElementById('metric-source-type');
+      if (metricTypeEl) metricTypeEl.textContent = srcType;
+
+      const panelSrcName = document.getElementById('panel-source-name');
+      if (panelSrcName) panelSrcName.textContent = srcName;
+      const panelSrcType = document.getElementById('panel-source-type');
+      if (panelSrcType) panelSrcType.textContent = srcType;
+      const panelSrcEvents = document.getElementById('panel-source-events');
+      if (panelSrcEvents) panelSrcEvents.textContent = `(${evCount} Events)`;
+    }
+
+    function renderHypotheses(data) {
+      const hyp = (data.hypotheses && data.hypotheses[0]) || {};
+      document.getElementById('hypothesis-verdict-badge').textContent = `VERDICT: ${hyp.verdict || 'MALICIOUS'}`;
+      document.getElementById('hypothesis-title').textContent = hyp.title || 'Multi-Stage Incident';
+      document.getElementById('hypothesis-desc').textContent = hyp.description || '';
+
+      if (hyp.missing_evidence && hyp.missing_evidence.length > 0) {
+        document.getElementById('missing-evidence-container').classList.remove('hidden');
+        document.getElementById('missing-evidence-text').innerHTML = hyp.missing_evidence.map(e => `• ${e}`).join('<br>');
+      } else {
+        document.getElementById('missing-evidence-container').classList.add('hidden');
+      }
+
+      // Dynamic Bayesian Inference rendering
+      const postProb = (hyp.bayesian_posterior !== undefined && hyp.bayesian_posterior !== null)
+        ? (hyp.bayesian_posterior * 100).toFixed(1) + '%' 
+        : (Math.round((hyp.confidence || 0.9) * 100) + '%');
+      
+      let bayesFactorStr = 'N/A';
+      if (hyp.bayesian_likelihood_ratio !== undefined && hyp.bayesian_likelihood_ratio !== null) {
+        bayesFactorStr = hyp.bayesian_likelihood_ratio >= 1000 
+          ? Math.round(hyp.bayesian_likelihood_ratio).toLocaleString() + ' : 1'
+          : hyp.bayesian_likelihood_ratio.toFixed(1) + ' : 1';
+      }
+      
+      const bayesVerdict = hyp.bayesian_verdict || hyp.verdict || 'MALICIOUS';
+
+      const postEl = document.getElementById('bayesian-posterior-val');
+      if (postEl) postEl.textContent = postProb;
+      const factorEl = document.getElementById('bayesian-factor-val');
+      if (factorEl) factorEl.textContent = bayesFactorStr;
+      const verdictEl = document.getElementById('bayesian-verdict-badge');
+      if (verdictEl) {
+        verdictEl.textContent = bayesVerdict;
+        if (bayesVerdict.includes('MALICIOUS')) {
+          verdictEl.className = 'px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-rose-950 border border-rose-700 text-rose-400';
+        } else if (bayesVerdict.includes('BENIGN')) {
+          verdictEl.className = 'px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-950 border border-emerald-700 text-emerald-400';
+        } else {
+          verdictEl.className = 'px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-950 border border-amber-700 text-amber-300';
+        }
+      }
+
+      const trajList = document.getElementById('bayesian-trajectory-list');
+      const stepCount = document.getElementById('bayesian-step-count');
+      if (trajList) {
+        trajList.innerHTML = '';
+        const trajectory = hyp.bayesian_trajectory || [];
+        if (stepCount) stepCount.textContent = `${trajectory.length} Evidence Shifts`;
+
+        trajectory.forEach(step => {
+          const stepDiv = document.createElement('div');
+          const isBenign = step.likelihood_ratio < 1.0;
+          const probPct = (step.posterior_probability * 100).toFixed(1);
+          stepDiv.className = 'p-2 rounded bg-cyber-950 border border-cyber-800 text-[11px] font-mono flex items-center justify-between space-x-2';
+          stepDiv.innerHTML = `
+            <div class="flex items-center space-x-2 min-w-0">
+              <span class="px-1.5 py-0.5 rounded text-[9px] font-bold ${isBenign ? 'bg-emerald-950 text-emerald-400 border border-emerald-800' : 'bg-purple-950 text-purple-300 border border-purple-800'} shrink-0">
+                #${step.step_number}
+              </span>
+              <div class="truncate">
+                <div class="font-bold text-slate-200 truncate">${escapeHtml(step.feature_name)}</div>
+                <div class="text-[9px] text-slate-400 font-sans truncate">${escapeHtml(step.description)}</div>
+              </div>
+            </div>
+            <div class="text-right shrink-0">
+              <div class="font-bold ${isBenign ? 'text-emerald-400' : 'text-rose-400'}">P = ${probPct}%</div>
+              <div class="text-[9px] text-cyan-400">Λ = ${step.likelihood_ratio}x</div>
+            </div>
+          `;
+          trajList.appendChild(stepDiv);
+        });
+
+        if (trajectory.length === 0) {
+          trajList.innerHTML = '<div class="text-slate-500 text-[10px] italic p-1">No evidence shifts recorded.</div>';
+        }
+      }
+    }
+
+    function renderMitre(data) {
+      const hyp = (data.hypotheses && data.hypotheses[0]) || {};
+      const techs = hyp.mitre_techniques || [];
+      document.getElementById('mitre-count').textContent = `${techs.length} Detected`;
+      document.getElementById('badge-mitre-count').textContent = techs.length;
+      const container = document.getElementById('mitre-container');
+      container.innerHTML = '';
+
+      techs.forEach(t => {
+        const item = document.createElement('div');
+        item.className = 'p-2.5 rounded-lg bg-cyber-850 border border-cyber-800 text-xs hover:border-slate-600 transition';
+        item.innerHTML = `
+          <div class="flex items-center justify-between mb-1">
+            <span class="font-mono font-bold text-rose-400">${t.id}</span>
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-mono bg-purple-950 border border-purple-800 text-purple-300 font-semibold">${t.tactic}</span>
+          </div>
+          <div class="font-semibold text-slate-100 text-xs font-sans">${t.name}</div>
+          <div class="text-[11px] text-slate-400 mt-0.5 leading-snug font-sans">${t.description}</div>
+        `;
+        container.appendChild(item);
+      });
+    }
+
+    function renderActions(data) {
+      const container = document.getElementById('actions-container');
+      container.innerHTML = '';
+      const actions = data.recommended_actions || [];
+
+      actions.forEach((act, idx) => {
+        const card = document.createElement('div');
+        const isApproved = act.status === 'APPROVED';
+        const isRejected = act.status === 'REJECTED';
+
+        const typeBadges = {
+          'ISOLATE_HOST': { icon: '🛡️', badge: 'bg-rose-950 text-rose-400 border-rose-800' },
+          'KILL_PROCESS': { icon: '🛑', badge: 'bg-orange-950 text-orange-400 border-orange-800' },
+          'BLOCK_IP': { icon: '🌐', badge: 'bg-indigo-950 text-indigo-400 border-indigo-800' },
+          'DELETE_REGISTRY_KEY': { icon: '🧹', badge: 'bg-amber-950 text-amber-400 border-amber-800' },
+          'RESET_CREDENTIALS': { icon: '🔐', badge: 'bg-teal-950 text-teal-300 border-teal-800' },
+          'RESET_KRBTGT_KEY': { icon: '👑', badge: 'bg-red-950 text-red-300 border-red-700' }
+        };
+
+        const typeInfo = typeBadges[act.action_type] || { icon: '⚡', badge: 'bg-rose-950 text-rose-400 border-rose-800' };
+
+        let borderClass = 'border-cyber-800';
+        let bgBadge = typeInfo.badge;
+        if (isApproved) {
+          borderClass = 'border-emerald-700 bg-emerald-950/20';
+          bgBadge = 'bg-emerald-950 text-emerald-400 border-emerald-800';
+        } else if (isRejected) {
+          borderClass = 'border-slate-800 opacity-60';
+          bgBadge = 'bg-slate-800 text-slate-400 border-slate-700';
+        }
+
+        card.className = `p-3 rounded-xl bg-cyber-850 border ${borderClass} text-xs transition`;
+        card.innerHTML = `
+          <div class="flex items-center justify-between mb-1">
+            <div class="flex items-center space-x-2">
+              <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold border ${bgBadge}">${typeInfo.icon} ${act.action_type}</span>
+              <span class="text-[10px] font-mono text-amber-400">${act.priority}</span>
+            </div>
+            <span class="text-[10px] font-mono text-slate-400">${act.status || 'PENDING'}</span>
+          </div>
+          <div class="font-mono text-cyan-300 text-xs mb-1 font-semibold">${act.target}</div>
+          <p class="text-slate-300 text-[11px] leading-relaxed mb-2 font-sans">${act.rationale}</p>
+          <div class="flex items-center space-x-1.5">
+            <button onclick="openSimulationModal(${idx})" class="px-2 py-1 text-[10px] font-bold rounded bg-purple-950 hover:bg-purple-900 text-purple-300 border border-purple-700 transition flex items-center space-x-1 shadow">
+              <span>🧪 Simulate</span>
+            </button>
+            <button onclick="approveAction(${idx})" class="px-2.5 py-1 text-[11px] font-bold rounded ${isApproved ? 'bg-emerald-600 text-white' : 'bg-emerald-950 hover:bg-emerald-800 text-emerald-300 border border-emerald-700'} transition shadow">
+              ${isApproved ? '✓ Approved' : 'Approve'}
+            </button>
+            <button onclick="rejectAction(${idx})" class="px-2 py-1 text-[11px] font-semibold rounded ${isRejected ? 'bg-slate-700 text-white' : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700'} transition">
+              ${isRejected ? 'Rejected' : 'Dismiss'}
+            </button>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    let currentModalActionIdx = null;
+
+    async function openSimulationModal(idx) {
+      currentModalActionIdx = idx;
+      showToast('🧪 Simulating...', 'Evaluating blast radius and safety constraints...');
+      try {
+        const res = await fetch(`/api/action/${idx}/simulate`, { method: 'POST' });
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.detail || `Server returned HTTP ${res.status}`);
+        }
+        const sim = await res.json();
+
+        const targetEl = document.getElementById('modal-sim-target');
+        if (targetEl) targetEl.textContent = `${sim.action_type} ➔ ${sim.target}`;
+        
+        const riskEl = document.getElementById('modal-sim-risk');
+        if (riskEl) {
+          riskEl.textContent = sim.risk_level;
+          if (sim.risk_level === 'CRITICAL_CAUTION') {
+            riskEl.className = 'text-sm font-mono font-bold mt-0.5 text-rose-400 animate-pulse';
+          } else if (sim.risk_level === 'HIGH') {
+            riskEl.className = 'text-sm font-mono font-bold mt-0.5 text-orange-400';
+          } else if (sim.risk_level === 'MEDIUM') {
+            riskEl.className = 'text-sm font-mono font-bold mt-0.5 text-amber-300';
+          } else {
+            riskEl.className = 'text-sm font-mono font-bold mt-0.5 text-emerald-400';
+          }
+        }
+
+        const impactEl = document.getElementById('modal-sim-impact');
+        if (impactEl) impactEl.textContent = sim.operational_impact;
+
+        const warnContainer = document.getElementById('modal-sim-warnings-container');
+        const warnList = document.getElementById('modal-sim-warnings-list');
+        if (warnContainer && warnList) {
+          warnList.innerHTML = '';
+          if (sim.safety_warnings && sim.safety_warnings.length > 0) {
+            warnContainer.classList.remove('hidden');
+            sim.safety_warnings.forEach(w => {
+              const li = document.createElement('li');
+              li.textContent = w;
+              warnList.appendChild(li);
+            });
+          } else {
+            warnContainer.classList.add('hidden');
+          }
+        }
+
+        const cmdEl = document.getElementById('modal-sim-command');
+        if (cmdEl) cmdEl.textContent = sim.simulated_command;
+        
+        const stateEl = document.getElementById('modal-sim-state');
+        if (stateEl) stateEl.textContent = sim.predicted_host_state;
+        
+        const rollbackEl = document.getElementById('modal-sim-rollback');
+        if (rollbackEl) rollbackEl.textContent = sim.rollback_command;
+
+        const actionBtnContainer = document.getElementById('modal-sim-actions');
+        if (actionBtnContainer) {
+          actionBtnContainer.innerHTML = `
+            <button onclick="approveFromModal(${idx})" class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-lg transition">
+              ✓ Approve & Apply Action
+            </button>
+          `;
+        }
+
+        const modal = document.getElementById('simulation-modal');
+        if (modal) {
+          modal.classList.remove('hidden');
+          modal.style.display = 'flex';
+        }
+      } catch (err) {
+        showToast('Simulation Error', err.message || 'Failed to retrieve simulation preview');
+        console.error('Simulation modal error:', err);
+      }
+    }
+
+    function closeSimulationModal() {
+      const modal = document.getElementById('simulation-modal');
+      if (modal) {
+        modal.classList.add('hidden');
+        modal.style.display = 'none';
+      }
+      currentModalActionIdx = null;
+    }
+
+    async function approveFromModal(idx) {
+      await approveAction(idx);
+      closeSimulationModal();
+      showToast('Action Approved', 'Countermeasure authorized by SOC analyst.');
+    }
+
+    function copySimCommand() {
+      const cmdText = document.getElementById('modal-sim-command').textContent;
+      navigator.clipboard.writeText(cmdText).then(() => {
+        showToast('Command Copied', 'PowerShell command copied to clipboard');
+      });
+    }
+
+    async function simulateAllActions() {
+      try {
+        const res = await fetch('/api/action/simulate-all', { method: 'POST' });
+        const summary = await res.json();
+        const banner = document.getElementById('preflight-summary-banner');
+        
+        const riskColor = summary.overall_safety_level === 'CRITICAL_CAUTION' ? 'text-rose-400' :
+                          summary.overall_safety_level === 'HIGH' ? 'text-orange-400' : 'text-emerald-400';
+
+        banner.innerHTML = `
+          <div class="flex items-center justify-between">
+            <span class="font-bold flex items-center space-x-1.5">
+              <span>🧪 Pre-Flight Audit:</span>
+              <span class="${riskColor}">${summary.overall_safety_level}</span>
+            </span>
+            <span class="text-slate-400">${summary.total_actions} actions analyzed (${summary.caution_flags} caution flags)</span>
+          </div>
+          <p class="text-[11px] text-slate-300 font-sans mt-1">
+            All containment scripts compiled and checked against system dependencies. Ready for selective human authorization or playbook export.
+          </p>
+        `;
+        banner.classList.remove('hidden');
+        showToast('Pre-Flight Simulation Complete', `Safety rating: ${summary.overall_safety_level}`);
+      } catch (err) {
+        console.error('Failed to simulate all:', err);
+      }
+    }
+
+    async function approveAction(idx) {
+      await fetch(`/api/action/${idx}/approve`, { method: 'POST' });
+      await loadData();
+    }
+
+    async function rejectAction(idx) {
+      await fetch(`/api/action/${idx}/reject`, { method: 'POST' });
+      await loadData();
+    }
+
+    function renderTimeline(data) {
+      allTimelineEntries = data.timeline || [];
+      displayTimeline(allTimelineEntries);
+    }
+
+    function displayTimeline(entries) {
+      const tbody = document.getElementById('timeline-tbody');
+      tbody.innerHTML = '';
+      document.getElementById('timeline-count-badge').textContent = `${entries.length} Events`;
+
+      entries.forEach(item => {
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-cyber-800/80 transition cursor-pointer';
+        tr.onclick = () => focusNodeInGraph(item);
+
+        const timeStr = item.timestamp.split('T')[1].split('.')[0];
+        const isMalicious = item.mitre_id ? true : false;
+
+        tr.innerHTML = `
+          <td class="py-2 px-3 text-cyan-400">${timeStr}</td>
+          <td class="py-2 px-3">
+            <span class="px-2 py-0.5 rounded text-[10px] ${isMalicious ? 'bg-purple-950 text-purple-300 border border-purple-800' : 'bg-slate-800 text-slate-400'}">
+              ${item.stage}
+            </span>
+          </td>
+          <td class="py-2 px-3 text-emerald-400 font-semibold">${item.actor}</td>
+          <td class="py-2 px-3 text-slate-200">${item.action}</td>
+          <td class="py-2 px-3 text-yellow-300 truncate max-w-xs" title="${item.target}">${item.target}</td>
+          <td class="py-2 px-3 text-rose-400 font-bold">${item.mitre_id || '-'}</td>
+          <td class="py-2 px-3 text-slate-400 text-[10px]">${item.evidence_record_id}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function filterTimeline(tactic) {
+      document.querySelectorAll('.timeline-filter-btn').forEach(b => {
+        if (b.getAttribute('data-filter') === tactic) {
+          b.className = 'timeline-filter-btn px-2 py-0.5 rounded bg-cyan-900 text-cyan-300 border border-cyan-700 font-bold';
+        } else {
+          b.className = 'timeline-filter-btn px-2 py-0.5 rounded bg-cyber-800 text-slate-400 hover:text-white';
+        }
+      });
+
+      if (tactic === 'ALL') {
+        displayTimeline(allTimelineEntries);
+      } else {
+        const filtered = allTimelineEntries.filter(e => e.stage.toLowerCase().includes(tactic.toLowerCase()));
+        displayTimeline(filtered);
+      }
+    }
+
+    function renderGraph(data) {
+      const container = document.getElementById('network-canvas');
+      visNodes = new vis.DataSet(data.nodes);
+      visEdges = new vis.DataSet(data.edges);
+      const nodes = visNodes;
+      const edges = visEdges;
+
+      const badge = document.getElementById('noise-metrics-badge');
+      if (data.noise_metrics && data.noise_metrics.noise_nodes_filtered > 0 && filterNoiseEnabled) {
+        badge.textContent = `🎯 Pruned ${data.noise_metrics.noise_nodes_filtered} Noise Nodes (${data.noise_metrics.noise_reduction_pct}%)`;
+        badge.classList.remove('hidden');
+      } else {
+        badge.classList.add('hidden');
+      }
+
+      const options = {
+        nodes: {
+          borderWidth: 2,
+          shadow: { enabled: true, color: 'rgba(0,0,0,0.6)', size: 10, x: 4, y: 4 },
+          font: { face: 'JetBrains Mono', color: '#f8fafc', size: 11 }
+        },
+        edges: {
+          width: 2,
+          shadow: { enabled: true, color: 'rgba(0,0,0,0.4)', size: 5 },
+          font: { face: 'JetBrains Mono', color: '#94a3b8', size: 10, background: '#040711' }
+        },
+        physics: {
+          enabled: physicsEnabled,
+          barnesHut: {
+            gravitationalConstant: -5500,
+            centralGravity: 0.2,
+            springLength: 210,
+            springConstant: 0.03,
+            damping: 0.15
+          }
+        },
+        interaction: {
+          hover: true,
+          tooltipDelay: 100,
+          zoomView: true,
+          dragView: true
+        }
+      };
+
+      network = new vis.Network(container, { nodes, edges }, options);
+
+      network.on('click', function(params) {
+        if (params.nodes.length > 0) {
+          const nodeId = params.nodes[0];
+          showNodeInspector(nodeId);
+        } else {
+          closeNodeInspector();
+        }
+      });
+
+      network.on('doubleClick', function(params) {
+        if (params.nodes.length > 0) {
+          network.focus(params.nodes[0], {
+            scale: 1.5,
+            animation: { duration: 500, easingFunction: 'easeInOutQuad' }
+          });
+          showNodeInspector(params.nodes[0]);
+        }
+      });
+
+      // Auto-focus directly on malicious nodes on initial load so user never has to search or zoom
+      network.once('stabilizationIterationsDone', function() {
+        setTimeout(focusAttackPath, 300);
+      });
+    }
+
+    function showNodeInspector(nodeId) {
+      const nodeObj = graphData.nodes.find(n => n.id === nodeId);
+      if (!nodeObj) return;
+
+      const inspector = document.getElementById('node-inspector');
+      const content = document.getElementById('inspector-content');
+      inspector.classList.remove('hidden');
+
+      let html = `<div class="p-2 bg-cyber-950 rounded border border-cyber-800">
+        <span class="text-slate-400 block text-[9px] uppercase">Entity ID</span>
+        <span class="text-cyan-300 font-bold">${nodeObj.id}</span>
+      </div>`;
+
+      if (nodeObj.raw_data) {
+        for (const [k, v] of Object.entries(nodeObj.raw_data)) {
+          if (v) {
+            html += `<div class="p-1 border-b border-cyber-800">
+              <span class="text-slate-400 block text-[9px] uppercase">${k}</span>
+              <span class="text-slate-200 text-xs">${v}</span>
+            </div>`;
+          }
+        }
+      }
+
+      content.innerHTML = html;
+    }
+
+    function closeNodeInspector() {
+      document.getElementById('node-inspector').classList.add('hidden');
+    }
+
+    function focusNodeInGraph(timelineItem) {
+      if (!network || !graphData) return;
+      const match = graphData.nodes.find(n => {
+        if (timelineItem.actor && n.id.includes(timelineItem.actor)) return true;
+        if (timelineItem.target && n.id.includes(timelineItem.target)) return true;
+        return false;
+      });
+
+      if (match) {
+        network.focus(match.id, {
+          scale: 1.3,
+          animation: { duration: 600, easingFunction: 'easeInOutQuad' }
+        });
+        showNodeInspector(match.id);
+      }
+    }
+
+    function focusAttackPath() {
+      if (!network || !graphData) return;
+      const attackNodeIds = graphData.nodes
+        .filter(n => n.is_suspicious || n.is_root)
+        .map(n => n.id);
+
+      if (attackNodeIds.length > 0) {
+        network.fit({
+          nodes: attackNodeIds,
+          animation: { duration: 700, easingFunction: 'easeInOutQuad' }
+        });
+      } else {
+        network.fit({ animation: { duration: 500 } });
+      }
+    }
+
+    function zoomIn() {
+      if (!network) return;
+      const curScale = network.getScale();
+      network.moveTo({ scale: curScale * 1.35, animation: { duration: 250 } });
+    }
+
+    function zoomOut() {
+      if (!network) return;
+      const curScale = network.getScale();
+      network.moveTo({ scale: curScale / 1.35, animation: { duration: 250 } });
+    }
+
+    function fitGraph() {
+      if (network) network.fit({ animation: { duration: 600 } });
+    }
+
+    function togglePhysics() {
+      physicsEnabled = !physicsEnabled;
+      if (network) network.setOptions({ physics: { enabled: physicsEnabled } });
+      document.getElementById('physics-btn').textContent = `Physics: ${physicsEnabled ? 'On' : 'Off'}`;
+    }
+
+    async function reloadSample() {
+      await fetch('/api/reset-sample', { method: 'POST' });
+      await loadData();
+    }
+
+    function showToast(title, msg) {
+      const toast = document.getElementById('toast');
+      document.getElementById('toast-title').textContent = title;
+      document.getElementById('toast-msg').textContent = msg;
+      toast.classList.remove('translate-y-20', 'opacity-0', 'pointer-events-none');
+      setTimeout(() => {
+        toast.classList.add('translate-y-20', 'opacity-0', 'pointer-events-none');
+      }, 5000);
+    }
+
+    async function handleFileUpload(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      try {
+        const res = await fetch('/api/upload', { method: 'POST', body: formData });
+        const result = await res.json();
+        if (res.ok) {
+          showToast('✅ Telemetry Ingested Successfully', `${result.source_name} (${result.source_type} · ${result.events_count} events)`);
+          await loadData();
+          setTimeout(focusAttackPath, 400);
+        } else {
+          showToast('❌ Ingestion Error', result.detail || 'Failed to parse file');
+        }
+      } catch (err) {
+        showToast('❌ Upload Failed', err.message);
+      }
+    }
+
+    async function downloadDossier() {
+      window.open('/api/report/markdown', '_blank');
+    }
+
+    async function openBenchmarkModal() {
+      const modal = document.getElementById('benchmark-modal');
+      modal.classList.remove('hidden');
+      await loadBenchmarkData();
+    }
+
+    function closeBenchmarkModal() {
+      document.getElementById('benchmark-modal').classList.add('hidden');
+    }
+
+    async function loadBenchmarkData() {
+      const tbody = document.getElementById('benchmark-table-body');
+      tbody.innerHTML = `<tr><td colspan="7" class="py-8 text-center text-slate-400 font-mono"><div class="inline-block animate-spin h-5 w-5 border-2 border-purple-500 border-t-transparent rounded-full mr-2"></div>Running empirical benchmarks across test datasets...</td></tr>`;
+
+      try {
+        const res = await fetch('/api/benchmark/results');
+        const results = await res.json();
+
+        const avgLatency = (results.reduce((acc, r) => acc + r.t_total_ms, 0) / results.length).toFixed(2);
+        const maxPrune = Math.max(...results.map(r => r.noise_reduction_pct)).toFixed(1);
+        const avgF1 = (results.reduce((acc, r) => acc + r.f1_score, 0) / results.length).toFixed(3);
+
+        document.getElementById('bench-kpi-latency').textContent = `${avgLatency} ms`;
+        document.getElementById('bench-kpi-pruning').textContent = `${maxPrune}%`;
+        document.getElementById('bench-kpi-f1').textContent = avgF1;
+
+        tbody.innerHTML = '';
+        results.forEach(r => {
+          const tr = document.createElement('tr');
+          tr.className = 'border-b border-cyber-800/80 hover:bg-cyber-850/60 font-mono text-xs transition';
+          tr.innerHTML = `
+            <td class="py-3 px-3 text-slate-100 font-medium font-sans">
+              <div class="font-bold text-white">${r.dataset_name}</div>
+              <div class="text-[10px] text-slate-400 font-mono">${r.dataset_key}</div>
+            </td>
+            <td class="py-3 px-3 text-center">
+              <span class="px-2 py-0.5 rounded text-[10px] font-bold ${r.file_type === 'EVTX' ? 'bg-purple-950 text-purple-300 border border-purple-800' : 'bg-cyan-950 text-cyan-300 border border-cyan-800'}">${r.file_type}</span>
+            </td>
+            <td class="py-3 px-3 text-center text-slate-300">${r.event_count}</td>
+            <td class="py-3 px-3 text-right font-bold text-cyan-400">${r.t_total_ms.toFixed(2)} ms</td>
+            <td class="py-3 px-3 text-right font-bold ${r.noise_reduction_pct > 0 ? 'text-emerald-400' : 'text-slate-400'}">${r.noise_reduction_pct.toFixed(1)}%</td>
+            <td class="py-3 px-3 text-right font-bold text-purple-400">${r.f1_score.toFixed(3)}</td>
+            <td class="py-3 px-3 text-right font-bold text-amber-300">${Math.round(r.speedup_factor).toLocaleString()}x</td>
+          `;
+          tbody.appendChild(tr);
+        });
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="7" class="py-6 text-center text-rose-400 font-mono">Failed to load benchmark data: ${err.message}</td></tr>`;
+      }
+    }
+
+    // ----------------------------------------------------
+    // REAL-TIME TELEMETRY STREAMING & SSE INTEGRATION
+    // ----------------------------------------------------
+    function initLiveStreamSSE() {
+      if (streamEventSource) {
+        try { streamEventSource.close(); } catch (e) {}
+      }
+      streamEventSource = new EventSource('/api/stream/events');
+
+      streamEventSource.onopen = function() {
+        const ind = document.getElementById('stream-indicator');
+        const lbl = document.getElementById('stream-status-label');
+        if (ind) ind.className = isStreamPlaying ? 'h-2 w-2 rounded-full bg-rose-500 animate-pulse' : 'h-2 w-2 rounded-full bg-emerald-500';
+        if (lbl && !isStreamPlaying) lbl.textContent = 'SSE READY';
+      };
+
+      streamEventSource.onmessage = function(event) {
+        try {
+          const msg = JSON.parse(event.data);
+          handleStreamPayload(msg);
+        } catch (err) {
+          console.error("SSE parse error:", err);
+        }
+      };
+
+      streamEventSource.onerror = function() {
+        const ind = document.getElementById('stream-indicator');
+        const lbl = document.getElementById('stream-status-label');
+        if (ind && !isStreamPlaying) ind.className = 'h-2 w-2 rounded-full bg-amber-500 animate-pulse';
+        if (lbl && !isStreamPlaying) lbl.textContent = 'CONNECTING...';
+      };
+    }
+
+    function handleStreamPayload(msg) {
+      if (msg.type === 'CONNECTED') {
+        const ind = document.getElementById('stream-indicator');
+        const lbl = document.getElementById('stream-status-label');
+        if (ind && !isStreamPlaying) ind.className = 'h-2 w-2 rounded-full bg-emerald-400';
+        if (lbl && !isStreamPlaying) lbl.textContent = 'STREAM IDLE';
+        return;
+      }
+
+      if (msg.type === 'STREAM_COMPLETE') {
+        isStreamPlaying = false;
+        const btnStart = document.getElementById('btn-stream-start');
+        const btnPause = document.getElementById('btn-stream-pause');
+        if (btnStart) {
+          btnStart.classList.remove('hidden');
+          btnStart.innerHTML = '<span>▶ Replay</span>';
+        }
+        if (btnPause) btnPause.classList.add('hidden');
+
+        const ind = document.getElementById('stream-indicator');
+        const lbl = document.getElementById('stream-status-label');
+        if (ind) ind.className = 'h-2 w-2 rounded-full bg-emerald-400';
+        if (lbl) lbl.textContent = 'REPLAY DONE';
+
+        showToast('⚡ Stream Replay Complete', msg.message || 'All trace events successfully ingested.');
+        setTimeout(focusAttackPath, 500);
+        return;
+      }
+
+      if (msg.type === 'FILE_INGESTED') {
+        showToast('📁 Zero-ETL Watcher Drop', `${msg.filename} (${msg.events_count} events added)`);
+        loadData();
+        return;
+      }
+
+      if (msg.type === 'STREAM_EVENT') {
+        // 1. Incrementally update vis.DataSet
+        if (visNodes && msg.delta_nodes && msg.delta_nodes.length > 0) {
+          msg.delta_nodes.forEach(n => {
+            if (!visNodes.get(n.id)) {
+              visNodes.add(n);
+              if (graphData && graphData.nodes) graphData.nodes.push(n);
+            }
+          });
+        }
+
+        if (visEdges && msg.delta_edges && msg.delta_edges.length > 0) {
+          msg.delta_edges.forEach(e => {
+            visEdges.add(e);
+            if (graphData && graphData.edges) graphData.edges.push(e);
+          });
+        }
+
+        // 2. Metrics Ribbon Updates
+        const evCountEl = document.getElementById('metric-events-count');
+        if (evCountEl) evCountEl.textContent = `${msg.event_number} Telemetry Events (Live)`;
+
+        const grCountEl = document.getElementById('metric-graph-count');
+        if (grCountEl) grCountEl.textContent = `${msg.total_nodes} Causal Entities`;
+
+        const confEl = document.getElementById('metric-confidence');
+        if (confEl && msg.confidence_pct !== undefined) confEl.textContent = `${msg.confidence_pct}%`;
+
+        const actEl = document.getElementById('metric-actions-count');
+        if (actEl && msg.pending_actions_count !== undefined) {
+          actEl.textContent = `${msg.pending_actions_count} Actions Pending`;
+          const badgeAct = document.getElementById('badge-actions-count');
+          if (badgeAct) badgeAct.textContent = msg.pending_actions_count;
+        }
+
+        // 3. Bayesian probability updates
+        if (msg.bayesian_posterior !== undefined) {
+          const postEl = document.getElementById('bayesian-posterior-val');
+          if (postEl) postEl.textContent = `${(msg.bayesian_posterior * 100).toFixed(1)}%`;
+        }
+        if (msg.bayesian_likelihood_ratio !== undefined) {
+          const factorEl = document.getElementById('bayesian-factor-val');
+          if (factorEl) {
+            factorEl.textContent = msg.bayesian_likelihood_ratio >= 1000 
+              ? `${Math.round(msg.bayesian_likelihood_ratio).toLocaleString()} : 1`
+              : `${msg.bayesian_likelihood_ratio.toFixed(1)} : 1`;
+          }
+        }
+        if (msg.bayesian_verdict) {
+          const verdEl = document.getElementById('bayesian-verdict-badge');
+          if (verdEl) {
+            verdEl.textContent = msg.bayesian_verdict;
+            if (msg.bayesian_verdict.includes('MALICIOUS')) {
+              verdEl.className = 'px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-rose-950 border border-rose-700 text-rose-400';
+            } else if (msg.bayesian_verdict.includes('BENIGN')) {
+              verdEl.className = 'px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-950 border border-emerald-700 text-emerald-400';
+            } else {
+              verdEl.className = 'px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-950 border border-amber-700 text-amber-300';
+            }
+          }
+        }
+
+        // Append to trajectory list if available
+        if (msg.latest_trajectory_step) {
+          const trajList = document.getElementById('bayesian-trajectory-list');
+          if (trajList) {
+            const step = msg.latest_trajectory_step;
+            const isBenign = step.likelihood_ratio < 1.0;
+            const probPct = (step.posterior_probability * 100).toFixed(1);
+            const stepDiv = document.createElement('div');
+            stepDiv.className = 'p-2 rounded bg-cyber-950 border border-cyan-800/80 text-[11px] font-mono flex items-center justify-between space-x-2 animate-pulse';
+            stepDiv.innerHTML = `
+              <div class="flex items-center space-x-2 min-w-0">
+                <span class="px-1.5 py-0.5 rounded text-[9px] font-bold ${isBenign ? 'bg-emerald-950 text-emerald-400 border border-emerald-800' : 'bg-purple-950 text-purple-300 border border-purple-800'} shrink-0">
+                  #${step.step_number}
+                </span>
+                <div class="truncate">
+                  <div class="font-bold text-slate-200 truncate">${escapeHtml(step.feature_name)}</div>
+                  <div class="text-[9px] text-slate-400 font-sans truncate">${escapeHtml(step.description)}</div>
+                </div>
+              </div>
+              <div class="text-right shrink-0">
+                <div class="font-bold ${isBenign ? 'text-emerald-400' : 'text-rose-400'}">P = ${probPct}%</div>
+                <div class="text-[9px] text-cyan-400">Λ = ${step.likelihood_ratio}x</div>
+              </div>
+            `;
+            trajList.appendChild(stepDiv);
+            setTimeout(() => stepDiv.classList.remove('animate-pulse'), 1500);
+          }
+        }
+
+        // 4. Prepend/append Timeline Row
+        if (msg.timeline_entry) {
+          allTimelineEntries.push(msg.timeline_entry);
+          displayTimeline(allTimelineEntries);
+        }
+
+        // 5. Update stream status indicator
+        const ind = document.getElementById('stream-indicator');
+        const lbl = document.getElementById('stream-status-label');
+        if (ind) ind.className = 'h-2 w-2 rounded-full bg-rose-500 animate-ping';
+        if (lbl) lbl.textContent = `EV #${msg.event_number} (${msg.event_type})`;
+        setTimeout(() => {
+          if (ind && isStreamPlaying) ind.className = 'h-2 w-2 rounded-full bg-rose-400 animate-pulse';
+        }, 400);
+      }
+    }
+
+    async function startLiveStreamPlayback() {
+      const preset = document.getElementById('preset-selector') ? document.getElementById('preset-selector').value : 'multihost';
+      const speed = parseFloat(document.getElementById('stream-speed-select').value) || 1.0;
+
+      isStreamPlaying = true;
+      document.getElementById('btn-stream-start').classList.add('hidden');
+      document.getElementById('btn-stream-pause').classList.remove('hidden');
+      document.getElementById('stream-indicator').className = 'h-2 w-2 rounded-full bg-rose-500 animate-pulse';
+      document.getElementById('stream-status-label').textContent = 'LIVE STREAMING';
+
+      try {
+        const res = await fetch(`/api/stream/sim/start?speed=${speed}&preset=${preset}`, { method: 'POST' });
+        const data = await res.json();
+        showToast('🔴 Live Stream Active', `Replaying trace at ${speed}s interval...`);
+      } catch (err) {
+        console.error('Failed to start simulation:', err);
+        showToast('Stream Error', err.message);
+      }
+    }
+
+    async function pauseLiveStreamPlayback() {
+      isStreamPlaying = false;
+      document.getElementById('btn-stream-start').classList.remove('hidden');
+      document.getElementById('btn-stream-start').innerHTML = '<span>▶ Resume</span>';
+      document.getElementById('btn-stream-pause').classList.add('hidden');
+      document.getElementById('stream-indicator').className = 'h-2 w-2 rounded-full bg-amber-400';
+      document.getElementById('stream-status-label').textContent = 'STREAM PAUSED';
+
+      try {
+        await fetch('/api/stream/sim/pause', { method: 'POST' });
+      } catch (err) {
+        console.error('Failed to pause stream:', err);
+      }
+    }
+
+    async function changeStreamSpeed(val) {
+      if (isStreamPlaying) {
+        await startLiveStreamPlayback();
+      }
+    }
+
+    async function resetLiveStream() {
+      isStreamPlaying = false;
+      document.getElementById('btn-stream-start').classList.remove('hidden');
+      document.getElementById('btn-stream-start').innerHTML = '<span>▶ Live Play</span>';
+      document.getElementById('btn-stream-pause').classList.add('hidden');
+      document.getElementById('stream-indicator').className = 'h-2 w-2 rounded-full bg-slate-500';
+      document.getElementById('stream-status-label').textContent = 'STREAM IDLE';
+
+      try {
+        await fetch('/api/stream/reset', { method: 'POST' });
+        await reloadSample();
+        showToast('Stream Reset', 'Incident state returned to baseline.');
+      } catch (err) {
+        console.error('Failed to reset stream:', err);
+      }
+    }
+
+    // Initialize on load
+    window.addEventListener('DOMContentLoaded', () => {
+      loadData();
+      initLiveStreamSSE();
+    });
+  </script>
+
+  <!-- Floating Toast Notification -->
+  <div id="toast" class="fixed bottom-5 right-5 z-50 px-4 py-3 rounded-xl bg-cyber-900 border border-emerald-500/80 text-white shadow-2xl flex items-center space-x-3 transition-all duration-300 transform translate-y-20 opacity-0 pointer-events-none">
+    <div class="h-8 w-8 rounded-full bg-emerald-950 border border-emerald-700 flex items-center justify-center shrink-0">
+      <span class="text-emerald-400 font-bold text-sm">✓</span>
+    </div>
+    <div>
+      <div id="toast-title" class="text-xs font-bold font-mono text-emerald-300">Telemetry Ingested</div>
+      <div id="toast-msg" class="text-[11px] text-slate-300 font-mono">File processed</div>
+    </div>
+  </div>
+
+  <!-- Capstone Evaluation & Benchmarking Modal -->
+  <div id="benchmark-modal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="bg-cyber-900 border border-cyber-700/80 rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden">
+      
+      <!-- Modal Header -->
+      <div class="px-6 py-4 bg-cyber-950 border-b border-cyber-800 flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+          <div class="h-8 w-8 rounded-lg bg-gradient-to-tr from-purple-600 to-indigo-500 flex items-center justify-center shadow">
+            <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+          </div>
+          <div>
+            <h2 class="text-base font-bold text-white tracking-tight">AIRA Empirical Evaluation & Benchmarks</h2>
+            <p class="text-xs text-slate-400">Capstone-I Quantitative Performance Verification across Synthetic & Binary Traces</p>
+          </div>
+        </div>
+        <button onclick="closeBenchmarkModal()" class="h-8 w-8 rounded-lg bg-cyber-850 hover:bg-cyber-800 text-slate-400 hover:text-white flex items-center justify-center transition font-mono">✕</button>
+      </div>
+
+      <!-- Modal Body (Scrollable) -->
+      <div class="p-6 overflow-y-auto space-y-6">
+        
+        <!-- Top 3 KPI Summary Cards -->
+        <div class="grid grid-cols-3 gap-4">
+          <div class="p-4 rounded-xl bg-cyber-950 border border-cyber-800">
+            <div class="text-[10px] uppercase font-mono font-bold text-slate-400 tracking-wider">Mean Triage Latency</div>
+            <div id="bench-kpi-latency" class="text-2xl font-black text-cyan-400 font-mono mt-1">18.7 ms</div>
+            <div class="text-[11px] text-emerald-400 mt-1 flex items-center space-x-1">
+              <span>● >50,000x faster than SOC (15m)</span>
+            </div>
+          </div>
+
+          <div class="p-4 rounded-xl bg-cyber-950 border border-cyber-800">
+            <div class="text-[10px] uppercase font-mono font-bold text-slate-400 tracking-wider">Peak Noise Pruning</div>
+            <div id="bench-kpi-pruning" class="text-2xl font-black text-purple-400 font-mono mt-1">73.8%</div>
+            <div class="text-[11px] text-slate-300 mt-1">
+              <span>Mitigates dependency explosion</span>
+            </div>
+          </div>
+
+          <div class="p-4 rounded-xl bg-cyber-950 border border-cyber-800">
+            <div class="text-[10px] uppercase font-mono font-bold text-slate-400 tracking-wider">Mean MITRE F1-Score</div>
+            <div id="bench-kpi-f1" class="text-2xl font-black text-emerald-400 font-mono mt-1">1.000</div>
+            <div class="text-[11px] text-slate-300 mt-1">
+              <span>100% Attack Path Recall</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Comparative Benchmark Table -->
+        <div class="rounded-xl border border-cyber-800 overflow-hidden bg-cyber-950/60">
+          <div class="px-4 py-2.5 bg-cyber-950 border-b border-cyber-800 flex items-center justify-between">
+            <span class="text-xs font-bold text-slate-300 uppercase tracking-wider font-mono">Benchmark Dataset Comparison</span>
+            <span class="text-[10px] text-slate-400 font-mono">Hardware: Intel/AMD x64 · Single Core</span>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr class="border-b border-cyber-800 text-[10px] font-mono uppercase text-slate-400 bg-cyber-900/80">
+                  <th class="py-2.5 px-3">Dataset Name</th>
+                  <th class="py-2.5 px-3 text-center">Format</th>
+                  <th class="py-2.5 px-3 text-center">Events</th>
+                  <th class="py-2.5 px-3 text-right">Latency</th>
+                  <th class="py-2.5 px-3 text-right">Pruning%</th>
+                  <th class="py-2.5 px-3 text-right">F1-Score</th>
+                  <th class="py-2.5 px-3 text-right">Speedup</th>
+                </tr>
+              </thead>
+              <tbody id="benchmark-table-body">
+                <!-- Dynamically populated -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Viva & Paper Highlights -->
+        <div class="p-4 rounded-xl bg-cyber-850/80 border border-cyber-800 space-y-2 text-xs">
+          <div class="font-bold text-slate-200 flex items-center space-x-1.5 font-mono">
+            <span class="h-2 w-2 rounded-full bg-cyan-400"></span>
+            <span>Key Research Contributions for Capstone Thesis</span>
+          </div>
+          <p class="text-slate-400 leading-relaxed text-[11px]">
+            1. <strong>Causal Subgraph Pruning</strong> reduces dependency explosion by up to <strong>73.8%</strong> without dropping any true-positive attack entities.<br>
+            2. <strong>Native EVTX & JSON Normalization</strong> allows zero-copy ECS ingestion directly from live endpoints or forensic artifacts.<br>
+            3. <strong>Instant Triage Budget</strong> achieves full causal reconstruction in <strong>&lt; 40 ms</strong>, empowering Tier-2 analysts to respond before lateral movement finishes.
+          </p>
+        </div>
+
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="px-6 py-3.5 bg-cyber-950 border-t border-cyber-800 flex items-center justify-between">
+        <button onclick="loadBenchmarkData()" class="px-3 py-1.5 text-xs font-semibold bg-cyber-850 hover:bg-cyber-800 text-slate-200 rounded-lg border border-slate-700 transition flex items-center space-x-1.5">
+          <svg class="w-3.5 h-3.5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+          <span>Re-Run Benchmarks</span>
+        </button>
+
+        <div class="flex items-center space-x-2.5">
+          <button onclick="window.open('/api/benchmark/latex', '_blank')" class="px-3.5 py-1.5 text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition shadow flex items-center space-x-1.5">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            <span>📄 Export LaTeX Tables</span>
+          </button>
+
+          <button onclick="window.open('/api/benchmark/markdown', '_blank')" class="px-3.5 py-1.5 text-xs font-bold bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg transition shadow flex items-center space-x-1.5">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+            <span>📝 View Markdown Report</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Simulation Sandbox Modal -->
+  <div id="simulation-modal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" style="display: none;">
+    <div class="bg-cyber-900 border border-cyber-700 rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <!-- Modal Header -->
+      <div class="px-5 py-3.5 border-b border-cyber-800 flex items-center justify-between bg-cyber-950 shrink-0">
+        <div class="flex items-center space-x-2.5">
+          <div class="h-8 w-8 rounded-lg bg-purple-900/60 border border-purple-600 flex items-center justify-center text-purple-300 font-bold">
+            🧪
+          </div>
+          <div>
+            <h3 class="text-sm font-bold text-slate-100 flex items-center space-x-2">
+              <span>Containment Pre-Flight Sandbox Simulation</span>
+              <span id="modal-sim-status" class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-800 font-mono">SIMULATION PREVIEW</span>
+            </h3>
+            <p id="modal-sim-target" class="text-xs text-cyan-400 font-mono"></p>
+          </div>
+        </div>
+        <button onclick="closeSimulationModal()" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-cyber-800 transition">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="p-5 space-y-4 overflow-y-auto text-xs font-sans">
+        <!-- Safety Rating Banner -->
+        <div class="flex items-center justify-between p-3 rounded-xl bg-cyber-850 border border-slate-700">
+          <div>
+            <div class="text-[10px] uppercase font-mono tracking-wider text-slate-400">Safety Risk Level</div>
+            <div id="modal-sim-risk" class="text-sm font-mono font-bold mt-0.5"></div>
+          </div>
+          <div class="text-right max-w-md">
+            <div class="text-[10px] uppercase font-mono tracking-wider text-slate-400">Operational Blast Radius</div>
+            <div id="modal-sim-impact" class="text-slate-300 text-xs mt-0.5 leading-snug"></div>
+          </div>
+        </div>
+
+        <!-- Safety Warnings -->
+        <div id="modal-sim-warnings-container" class="hidden p-3 rounded-xl bg-amber-950/40 border border-amber-800/60 text-amber-200">
+          <div class="font-bold font-mono text-[11px] mb-1 flex items-center space-x-1.5">
+            <span>⚠️ Safety Considerations:</span>
+          </div>
+          <ul id="modal-sim-warnings-list" class="list-disc list-inside space-y-1 text-[11px] text-amber-300/90 font-mono"></ul>
+        </div>
+
+        <!-- Simulated PowerShell Command -->
+        <div>
+          <div class="flex items-center justify-between mb-1.5 font-mono text-[11px]">
+            <span class="text-slate-400">💻 Simulated PowerShell Command:</span>
+            <button onclick="copySimCommand()" class="text-cyan-400 hover:text-cyan-300 transition text-[10px] flex items-center space-x-1">
+              <span>📋 Copy Command</span>
+            </button>
+          </div>
+          <pre id="modal-sim-command" class="p-3 rounded-lg bg-cyber-950 border border-slate-800 font-mono text-[11px] text-emerald-400 overflow-x-auto select-all leading-relaxed whitespace-pre-wrap"></pre>
+        </div>
+
+        <!-- Predicted Host State Change -->
+        <div class="p-3 rounded-xl bg-cyber-850 border border-slate-800 font-mono text-[11px]">
+          <div class="text-slate-400 mb-1">⚡ Predicted Host State Change:</div>
+          <div id="modal-sim-state" class="text-slate-200"></div>
+        </div>
+
+        <!-- Rollback Command -->
+        <div>
+          <div class="flex items-center justify-between mb-1 font-mono text-[11px]">
+            <span class="text-slate-400">🔄 Automated Rollback Command (If Reversal Required):</span>
+          </div>
+          <pre id="modal-sim-rollback" class="p-2.5 rounded-lg bg-cyber-950 border border-slate-800 font-mono text-[10px] text-slate-400 overflow-x-auto leading-relaxed whitespace-pre-wrap"></pre>
+        </div>
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="px-5 py-3 border-t border-cyber-800 flex items-center justify-between bg-cyber-950 shrink-0">
+        <button onclick="closeSimulationModal()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition">
+          Close Preview
+        </button>
+        <div class="flex items-center space-x-2" id="modal-sim-actions">
+          <!-- Dynamic Approve button -->
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
