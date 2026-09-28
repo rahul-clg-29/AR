@@ -1,0 +1,83 @@
+# ==============================================================================
+# AIRA (Autonomous Incident Reasoning Agent) - Git Ignore Configuration
+# ==============================================================================
+
+# --- Sensitive Environment & Secrets (NEVER COMMIT) ---
+.env
+.env.*
+*.env
+*.pem
+*.key
+*.cert
+secrets.json
+credentials.json
+api_keys.txt
+
+# --- Python Bytecode & Cache ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# --- Virtual Environments ---
+venv/
+.venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# --- Testing & Coverage Artifacts ---
+.pytest_cache/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+
+# --- IDE & Editor Settings ---
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+.project
+.pydevproject
+.settings/
+
+# --- Operating System Crap ---
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# --- Live Telemetry Streaming Temporary Drops ---
+# Keep the directory tracked via .gitkeep, but do not commit dropped event traces
+aira/data/live_stream/*
+!aira/data/live_stream/.gitkeep
+
+# --- Local Logs ---
+*.log
+logs/
